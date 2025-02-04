@@ -1,6 +1,6 @@
 const WebSocket = require("ws");
 const mqtt = require("mqtt");
-
+const fs =require("fs");
 // MQTT Broker Configuration (Replace with your AWS IoT Core MQTT endpoint if needed)
 // const MQTT_BROKER_URL = "mqtt://broker.hivemq.com";  // Public broker for testing
 const MQTT_TOPIC_BASE = "ocpp/chargingpoint/";
