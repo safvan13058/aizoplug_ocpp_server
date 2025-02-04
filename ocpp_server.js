@@ -19,8 +19,12 @@ const mqttClient = mqtt.connect("mqtts://an1ua1ij15hp7-ats.iot.ap-south-1.amazon
 
 
 
-mqttClient.on("connect", () => console.log("Connected to MQTT brokers"));
-
+// mqttClient.on("connect", () => console.log("Connected to MQTT brokers"));
+// MQTT Connection Events
+mqttClient.on("connect", () => console.log("Connected to MQTT broker"));
+mqttClient.on("error", (error) => console.error("MQTT Connection Error:", error));
+mqttClient.on("close", () => console.log("MQTT Connection Closed"));
+mqttClient.on("offline", () => console.log("MQTT Client Offline"));
 // Handle OCPP WebSocket connections
 wss.on("connection", (ws, req) => {
     console.log(`New charge point connected: ${req.socket.remoteAddress}`);
@@ -38,6 +42,7 @@ wss.on("connection", (ws, req) => {
 
             // Determine MQTT topic based on OCPP action
             let mqttTopic = `${MQTT_TOPIC_BASE}${stationId}/`;
+            
             switch (ocppAction) {
                 case "BootNotification":
                     mqttTopic += "boot";
@@ -57,7 +62,8 @@ wss.on("connection", (ws, req) => {
                 default:
                     mqttTopic += "unknown";
             }
-
+            
+            console.log(`topic==${mqttTopic}`)
             // Publish to MQTT topic
             mqttClient.publish(mqttTopic, JSON.stringify(payload));
 
