@@ -9,9 +9,9 @@ const wss = new WebSocket.Server({ port: 9000 });
 console.log("OCPP WebSocket server started on ws://13.235.49.231:9000");
 // Connect to MQTT Broker
 const mqttClient = mqtt.connect("mqtts://an1ua1ij15hp7-ats.iot.ap-south-1.amazonaws.com", {
-    key: fs.readFileSync("./private.pem.key"),
-    cert: fs.readFileSync("./certificate.pem.crt"),
-    ca: fs.readFileSync("./AmazonRootCA1.pem")
+    key: fs.readFileSync("private.pem.key"),
+    cert: fs.readFileSync("certificate.pem.crt"),
+    ca: fs.readFileSync("AmazonRootCA1.pem")
 });
 
 
