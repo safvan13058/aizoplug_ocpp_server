@@ -33,7 +33,9 @@ mqttClient.on("error", (error) => console.error("❌ MQTT Connection Error:", er
 deviceShadow.on("connect", () => {
     console.log("✅ Connected to AWS IoT Device Shadow");
 });
-
+deviceShadow.register("cp_2", {}, function () {
+    console.log("✅ Registered Shadow for cp_2");
+});
 // Handle WebSocket connections for OCPP
 wss.on("connection", (ws, req) => {
     const stationId = req.socket.remoteAddress.replace(/^::ffff:/, ""); // Extract IP
@@ -52,7 +54,7 @@ wss.on("connection", (ws, req) => {
 
     console.log(`📥 Updating Device Shadow for ${stationId} (Connected)`);
     // deviceShadow.update(stationId, connectShadowPayload);
-    deviceShadow.update(stationId, connectShadowPayload, function(err, data) {
+    deviceShadow.update("cp_2", connectShadowPayload, function(err, data) {
         if (err) {
             console.error(`❌ Shadow Update Error for ${stationId}:`, err);
         } else {
