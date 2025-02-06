@@ -36,7 +36,22 @@ deviceShadow.on("connect", () => {
 
 // Handle WebSocket connections for OCPP
 wss.on("connection", (ws, req) => {
-    console.log(`🔌 New charge point connected: ${req.socket.remoteAddress}`);
+    const stationId = req.socket.remoteAddress.replace(/^::ffff:/, ""); // Extract IP
+    console.log(`🔌 New charge point connected: ${stationId}`);
+
+    // Update AWS IoT Device Shadow with "connected" status
+    const connectShadowPayload = {
+        state: {
+            reported: {
+                stationId: stationId,
+                status: "connected",
+                timestamp: new Date().toISOString(),
+            },
+        },
+    };
+
+    console.log(`📥 Updating Device Shadow for ${stationId} (Connected)`);
+    deviceShadow.update(stationId, connectShadowPayload);
 
     ws.on("message", (message) => {
         console.log("📩 Received OCPP message:", message.toString());
@@ -88,30 +103,27 @@ wss.on("connection", (ws, req) => {
 
             console.log(`📥 Updating Device Shadow for ${stationId}`);
             deviceShadow.update(stationId, shadowPayload);
-
         } catch (error) {
             console.error("❌ Error parsing OCPP message:", error);
         }
     });
 
     ws.on("close", () => {
-        console.log("🔌 Charge point disconnected");
-    });
+        console.log(`🔌 Charge point ${stationId} disconnected`);
 
-    // Listen for MQTT messages and send commands to Charge Point
-    const mqttCommandTopic = `${MQTT_TOPIC_BASE}+/commands`;
-    mqttClient.subscribe(mqttCommandTopic);
+        // Update AWS IoT Device Shadow with "disconnected" status
+        const disconnectShadowPayload = {
+            state: {
+                reported: {
+                    stationId: stationId,
+                    status: "disconnected",
+                    timestamp: new Date().toISOString(),
+                },
+            },
+        };
 
-    mqttClient.on("message", (topic, message) => {
-        console.log(`📨 Received MQTT Command - Topic: ${topic}, Message: ${message.toString()}`);
-
-        // Extract Charge Point ID from MQTT topic
-        const topicParts = topic.split("/");
-        const stationId = topicParts[2];
-
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify([3, stationId, "RemoteStartTransaction", JSON.parse(message)]));
-        }
+        console.log(`📥 Updating Device Shadow for ${stationId} (Disconnected)`);
+        deviceShadow.update(stationId, disconnectShadowPayload);
     });
 });
 
