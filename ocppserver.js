@@ -51,8 +51,15 @@ wss.on("connection", (ws, req) => {
     };
 
     console.log(`📥 Updating Device Shadow for ${stationId} (Connected)`);
-    deviceShadow.update(stationId, connectShadowPayload);
-
+    // deviceShadow.update(stationId, connectShadowPayload);
+    deviceShadow.update(stationId, shadowPayload, function(err, data) {
+        if (err) {
+            console.error(`❌ Shadow Update Error for ${stationId}:`, err);
+        } else {
+            console.log(`✅ Shadow Update Success for ${stationId}:`, JSON.stringify(data));
+        }
+    });
+    
     ws.on("message", (message) => {
         console.log("📩 Received OCPP message:", message.toString());
 
