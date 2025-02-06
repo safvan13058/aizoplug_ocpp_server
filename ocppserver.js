@@ -132,7 +132,7 @@ wss.on("connection", (ws, req) => {
         };
 
         console.log(`📥 Updating Device Shadow for ${stationId} (Disconnected)`);
-        deviceShadow.update(stationId, disconnectShadowPayload);
+        deviceShadow.update("cp_2", disconnectShadowPayload);
     });
 });
 
