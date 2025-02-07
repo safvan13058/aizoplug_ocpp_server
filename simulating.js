@@ -6,11 +6,11 @@ ws.on("open", () => {
     console.log("Connected to OCPP Server");
 
     // Send BootNotification for Station ID: CP123
-    ws.send(JSON.stringify([2, "CP123", "BootNotification", { model: "EV Charger 1" }]));
+    ws.send(JSON.stringify([2, "cp_1", "BootNotification", { model: "EV Charger 1" , }]));
 
     // Simulate StartTransaction
     setTimeout(() => {
-        ws.send(JSON.stringify([2, "CP123", "StartTransaction", { transactionId: "TX1001" }]));
+        ws.send(JSON.stringify([2, "cp_1", "StartTransaction", { transactionId: "TX1001" }]));
     }, 3000);
 });
 

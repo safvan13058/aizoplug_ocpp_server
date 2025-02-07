@@ -21,9 +21,13 @@ mqttClient.on("error", (error) => console.error("❌ MQTT Connection Error:", er
 
 // ✅ Handle WebSocket connections for OCPP
 wss.on("connection", (ws, req) => {
-    const stationId = req.socket.remoteAddress.replace(/^::ffff:/, ""); // Extract IP
+    // const stationId = req.socket.remoteAddress.replace(/^::ffff:/, ""); // Extract IP
+    // console.log(`🔌 New charge point connected: ${stationId}`);
+    // console.log(` connected: ${req.socket.remoteAddress}`);
+    const queryParams = url.parse(req.url, true).query;
+    const stationId = queryParams.stationId || req.socket.remoteAddress.replace(/^::ffff:/, "");
+
     console.log(`🔌 New charge point connected: ${stationId}`);
-    console.log(` connected: ${req.socket.remoteAddress}`);
 
     // ✅ Create a new AWS IoT Device Shadow client for the station
     const deviceShadow = awsIot.thingShadow({
