@@ -110,5 +110,26 @@ wss.on("connection", (ws, req) => {
         ws.send(JSON.stringify(messageWithComment));
     });
 
-    ws.on("close", () => console.log(`🔌 Charge point ${stationId} disconnected`));
+    ws.on("close", () => {
+        console.log(`🔌 Charge point ${stationId} disconnected`);
+        
+        const disconnectShadowPayload = {
+            state: {
+                reported: {
+                    stationId: stationId,
+                    status: "disconnected",
+                    timestamp: new Date().toISOString(),
+                },
+            },
+        };
+
+        console.log(`📥 Updating Device Shadow for ${stationId} (Disconnected)`);
+        deviceShadow.update(stationId, disconnectShadowPayload, function (err, data) {
+            if (err) {
+                console.error(`❌ Shadow Update Error for ${stationId}:`, err);
+            } else {
+                console.log(`✅ Shadow Update Success for ${stationId}:`, JSON.stringify(data));
+            }
+        });
+    });
 });
