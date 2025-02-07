@@ -30,7 +30,7 @@ mqttClient.on("connect", () => console.log("✅ Connected to MQTT broker"));
 mqttClient.on("error", (error) => console.error("❌ MQTT Connection Error:", error));
 
 // ✅ AWS IoT Device Shadow Events
-deviceShadow.on("connect", () => console.log("✅ Connected to AWS IoT Device Shadow"));
+
 
 // ✅ Handle WebSocket connections for OCPP
 wss.on("connection", (ws, req) => {
@@ -47,6 +47,7 @@ wss.on("connection", (ws, req) => {
         clientId: stationId, // Unique clientId for each station
         host: AWS_IOT_HOST,
     });
+    deviceShadow.on("connect", () => console.log("✅ Connected to AWS IoT Device Shadow"));
     // ✅ Register the device shadow dynamically
     deviceShadow.register(stationId, {}, function () {
         console.log(`✅ Registered Shadow for ${stationId}`);
