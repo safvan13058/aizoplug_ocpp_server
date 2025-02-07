@@ -67,9 +67,16 @@ wss.on("connection", (ws, req) => {
         console.log("📩 Received OCPP message:", message.toString());
         try {
             const parsedMessage = JSON.parse(message);
+            const messageId = parsedMessage[1];
             const ocppAction = parsedMessage[2] || "unknown_action";
             const payload = parsedMessage[3] || {};
-            
+            if (ocppAction === "Authorize") {
+                // 🟢 Always accept authorization for now
+                const response = [3, messageId, { "idTagInfo": { "status": "Accepted" } }];
+                ws.send(JSON.stringify(response));
+                console.log("✅ Sent: Authorize Accepted");
+                return;
+            }
             console.log(`📡 Station ID: ${stationId}, Action: ${ocppAction}`);
             let mqttTopic = `${MQTT_TOPIC_BASE}${stationId}/${ocppActions[ocppAction] || "unknown"}`;
 
