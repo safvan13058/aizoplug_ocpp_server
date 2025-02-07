@@ -2,7 +2,7 @@ const WebSocket = require("ws");
 const mqtt = require("mqtt");
 const awsIot = require("aws-iot-device-sdk");
 const fs = require("fs");
-
+const url = require("url");
 const MQTT_TOPIC_BASE = "ocpp/chargingpoint/";
 const AWS_IOT_HOST = "an1ua1ij15hp7-ats.iot.ap-south-1.amazonaws.com"; // AWS IoT Core endpoint
 
@@ -25,7 +25,7 @@ wss.on("connection", (ws, req) => {
     // console.log(`🔌 New charge point connected: ${stationId}`);
     // console.log(` connected: ${req.socket.remoteAddress}`);
     const queryParams = url.parse(req.url, true).query;
-    const stationId = queryParams.stationId ;
+    const stationId = queryParams.stationId ||req.socket.remoteAddress.replace(/^::ffff:/, "") ;
 
     console.log(`🔌 New charge point connected: ${stationId}`);
 
