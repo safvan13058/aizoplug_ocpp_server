@@ -16,14 +16,14 @@ const mqttClient = mqtt.connect(`mqtts://${AWS_IOT_HOST}`, {
     ca: fs.readFileSync("AmazonRootCA1.pem"),
 });
 
-// ✅ AWS IoT Device Shadow Client
-const deviceShadow = awsIot.thingShadow({
-    keyPath: "private.pem.key",
-    certPath: "certificate.pem.crt",
-    caPath: "AmazonRootCA1.pem",
-    clientId: "cp_1",
-    host: AWS_IOT_HOST,
-});
+// // ✅ AWS IoT Device Shadow Client
+// const deviceShadow = awsIot.thingShadow({
+//     keyPath: "private.pem.key",
+//     certPath: "certificate.pem.crt",
+//     caPath: "AmazonRootCA1.pem",
+//     clientId: "cp_1",
+//     host: AWS_IOT_HOST,
+// });
 
 // ✅ MQTT Connection Events
 mqttClient.on("connect", () => console.log("✅ Connected to MQTT broker"));
@@ -34,10 +34,19 @@ deviceShadow.on("connect", () => console.log("✅ Connected to AWS IoT Device Sh
 
 // ✅ Handle WebSocket connections for OCPP
 wss.on("connection", (ws, req) => {
-    // const stationId = req.socket.remoteAddress.replace(/^::ffff:/, ""); // Extract IP
-    const stationId = "cp_1"; // Extract IP
-    console.log(`🔌 New charge point connected: ${stationId}`);
-
+    console.log(req.socket.remoteAddress)
+    const stationId = req.socket.remoteAddress.replace(/^::ffff:/, ""); // Extract IP
+  
+    console.log(`🔌 New charge po int connected: ${stationId}`);
+    
+      // ✅ Create a new shadow client for each station
+      const deviceShadow = awsIot.thingShadow({
+        keyPath: "private.pem.key",
+        certPath: "certificate.pem.crt",
+        caPath: "AmazonRootCA1.pem",
+        clientId: stationId, // Unique clientId for each station
+        host: AWS_IOT_HOST,
+    });
     // ✅ Register the device shadow dynamically
     deviceShadow.register(stationId, {}, function () {
         console.log(`✅ Registered Shadow for ${stationId}`);
