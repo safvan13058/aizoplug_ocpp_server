@@ -25,7 +25,7 @@ wss.on("connection", (ws, req) => {
     // console.log(`🔌 New charge point connected: ${stationId}`);
     // console.log(` connected: ${req.socket.remoteAddress}`);
     const queryParams = url.parse(req.url, true).query;
-    const stationId = queryParams.stationId || req.socket.remoteAddress.replace(/^::ffff:/, "");
+    const stationId = queryParams.stationId ;
 
     console.log(`🔌 New charge point connected: ${stationId}`);
 
