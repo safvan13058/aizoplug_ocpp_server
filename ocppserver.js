@@ -54,7 +54,7 @@ wss.on("connection", (ws, req) => {
 
     console.log(`📥 Updating Device Shadow for ${stationId} (Connected)`);
     // deviceShadow.update(stationId, connectShadowPayload);
-    deviceShadow.update("cp_2", connectShadowPayload, function(err, data) {
+    deviceShadow.update(stationId, connectShadowPayload, function(err, data) {
         if (err) {
             console.error(`❌ Shadow Update Error for ${stationId}:`, err);
         } else {
