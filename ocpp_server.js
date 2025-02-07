@@ -21,7 +21,7 @@ const deviceShadow = awsIot.thingShadow({
     keyPath: "private.pem.key",
     certPath: "certificate.pem.crt",
     caPath: "AmazonRootCA1.pem",
-    clientId: "chargepoint-shadow",
+    clientId: "cp_1",
     host: AWS_IOT_HOST,
 });
 
@@ -34,7 +34,8 @@ deviceShadow.on("connect", () => console.log("✅ Connected to AWS IoT Device Sh
 
 // ✅ Handle WebSocket connections for OCPP
 wss.on("connection", (ws, req) => {
-    const stationId = req.socket.remoteAddress.replace(/^::ffff:/, ""); // Extract IP
+    // const stationId = req.socket.remoteAddress.replace(/^::ffff:/, ""); // Extract IP
+    const stationId = "cp_1"; // Extract IP
     console.log(`🔌 New charge point connected: ${stationId}`);
 
     // ✅ Register the device shadow dynamically
