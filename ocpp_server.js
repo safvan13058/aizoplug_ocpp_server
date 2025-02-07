@@ -175,5 +175,5 @@ mqttClient.on("connect", () => {
 });
 
 mqttClient.on("message", (topic, message) => {
-    console.log(`📩 MQTT Message on ${topic}:`, message.toString());
+    // console.log(`📩 MQTT Message on ${topic}:`, message.toString());
 });
