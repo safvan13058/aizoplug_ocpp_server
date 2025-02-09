@@ -54,7 +54,7 @@ wss.on("connection", (ws, req) => {
             }
 
             console.log(`📡 Station ID: ${stationId}, Action: ${ocppAction}`);
-            let mqttTopic = `${MQTT_TOPIC_BASE}${stationId}/${ocppAction} || "unknown"}`;
+            let mqttTopic = `${MQTT_TOPIC_BASE}${stationId}/${ocppAction || "unknown"}`;
 
             console.log(`📤 Publishing to topic: ${mqttTopic}`);
             mqttClient.publish(mqttTopic, JSON.stringify(payload));
