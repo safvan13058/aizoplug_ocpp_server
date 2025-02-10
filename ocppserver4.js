@@ -7,13 +7,14 @@ const url = require("url");
 const MQTT_TOPIC_BASE = "ocpp/chargingpoint/";
 const AWS_IOT_HOST = "an1ua1ij15hp7-ats.iot.ap-south-1.amazonaws.com";
 
-const wss = new WebSocket.Server({ port: 9000 });
-console.log("🚀 OCPP WebSocket server started on ws://13.235.49.231:9000");
+const wss = new WebSocket.Server({ port: 8080 });
+console.log("🚀 OCPP WebSocket server started on ws://13.235.49.231:8080");
 
 const mqttClient = mqtt.connect(`mqtts://${AWS_IOT_HOST}`, {
     key: fs.readFileSync("private.pem.key"),
     cert: fs.readFileSync("certificate.pem.crt"),
     ca: fs.readFileSync("AmazonRootCA1.pem"),
+
 });
 
 mqttClient.on("connect", () => console.log("✅ Connected to MQTT broker"));
@@ -21,7 +22,7 @@ mqttClient.on("error", (error) => console.error("❌ MQTT Connection Error:", er
 
 wss.on("connection", (ws, req) => {
     const queryParams = url.parse(req.url, true).query;
-    const stationId = queryParams.stationId || req.socket.remoteAddress.replace(/^::ffff:/, "");
+    const stationId = queryParams.stationId ||  req.socket.remoteAddress.replace(/^::ffff:/, "");
     console.log(`payload${req.socket}`)
     console.log(`🔌 New charge point connected: ${stationId}`);
 
