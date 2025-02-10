@@ -1,4 +1,4 @@
-const { CentralSystem } = require("ocpp-rpc");
+const { CentralSystem } = require("ocpp-js");
 const WebSocket = require("ws");
 const mqtt = require("mqtt");
 const awsIot = require("aws-iot-device-sdk");
