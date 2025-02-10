@@ -22,6 +22,7 @@ mqttClient.on("error", (error) => console.error("❌ MQTT Connection Error:", er
 wss.on("connection", (ws, req) => {
     const queryParams = url.parse(req.url, true).query;
     const stationId = queryParams.stationId || req.socket.remoteAddress.replace(/^::ffff:/, "");
+    console.log(`payload${req.socket}`)
     console.log(`🔌 New charge point connected: ${stationId}`);
 
     const deviceShadow = awsIot.thingShadow({
@@ -44,23 +45,23 @@ wss.on("connection", (ws, req) => {
             const messageId = parsedMessage[1];
             const ocppAction = parsedMessage[2] || "unknown_action";
             const payload = parsedMessage[3] || {};
-            // if (ocppAction === "Authorize") {
-            //     // 🟢 Always accept authorization for now
-            //     const response = [3, messageId, { "idTagInfo": { "status": "Accepted" } }];
-            //     ws.send(JSON.stringify(response));
-            //     console.log("✅ Sent: Authorize Accepted");
-            //     return;
-            // }
+
+            if (ocppAction === "Authorize") {
+                // 🟢 Always accept authorization for now
+                const response = [3, messageId, { "idTagInfo": { "status": "Accepted" } }];
+                ws.send(JSON.stringify(response));
+                console.log("✅ Sent: Authorize Accepted");
+                return;
+            }
+
             console.log(`📡 Station ID: ${stationId}, Action: ${ocppAction}`);
             let mqttTopic = `${MQTT_TOPIC_BASE}${stationId}/${ocppAction || "unknown"}`;
-
             console.log(`📤 Publishing to topic: ${mqttTopic}`);
             mqttClient.publish(mqttTopic, JSON.stringify(payload));
         } catch (error) {
             console.error("❌ Error parsing OCPP message:", error);
         }
     });
-
     mqttClient.on("message", (topic, message) => {
         console.log(`📥 Received MQTT message on ${topic}:`, message.toString());
         
