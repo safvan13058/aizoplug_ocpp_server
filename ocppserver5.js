@@ -31,11 +31,6 @@ const mqttClient = mqtt.connect(`mqtts://${AWS_IOT_HOST}`, {
 mqttClient.on("connect", () => console.log("✅ Connected to AWS IoT Core (MQTT Broker)"));
 mqttClient.on("error", (error) => console.error("❌ MQTT Connection Error:", error));
 
-// 🌍 Objects to keep track of device shadows and connection status
-const deviceShadows = {};
-const connectedStations = {};  // Track whether a station is already connected
-const deviceShadowConnected = {}; // Track if device shadow is connected for each station
-
 // 🌍 Handle WebSocket Connections (Charge Points)
 wss.on("connection", (ws, req) => {
     const queryParams = url.parse(req.url, true).query;
@@ -43,32 +38,19 @@ wss.on("connection", (ws, req) => {
 
     console.log(`🔌 Charge Point Connected: ${stationId}`);
 
-    // Only initialize the device shadow if it's not already connected for this station
-    if (!deviceShadowConnected[stationId]) {
-        // 📡 AWS IoT Device Shadow (initialize only once per stationId)
-        let deviceShadow = awsIot.thingShadow({
-            keyPath: "private.pem.key",
-            certPath: "certificate.pem.crt",
-            caPath: "AmazonRootCA1.pem",
-            clientId: stationId,
-            host: AWS_IOT_HOST,
-        });
+    // 📡 AWS IoT Device Shadow
+    const deviceShadow = awsIot.thingShadow({
+        keyPath: "private.pem.key",
+        certPath: "certificate.pem.crt",
+        caPath: "AmazonRootCA1.pem",
+        clientId: stationId,
+        host: AWS_IOT_HOST,
+    });
 
-        deviceShadows[stationId] = deviceShadow;  // Store in the deviceShadows cache
-        deviceShadowConnected[stationId] = true; // Mark this station's shadow as connected
-
-        deviceShadow.on("connect", () => {
-            console.log(`✅ Connected to AWS IoT Device Shadow for ${stationId}`);
-            deviceShadow.register(stationId, {}, () => {
-                console.log(`✅ Registered Shadow for ${stationId}`);
-            });
-        });
-
-        deviceShadow.on("close", () => {
-            console.log(`🔌 Device Shadow connection closed for ${stationId}`);
-            deviceShadowConnected[stationId] = false; // Mark as disconnected
-        });
-    }
+    deviceShadow.on("connect", () => {
+        console.log(`✅ Connected to AWS IoT Device Shadow for ${stationId}`);
+        deviceShadow.register(stationId, {}, () => console.log(`✅ Registered Shadow for ${stationId}`));
+    });
 
     // 📩 Handle Incoming WebSocket Messages (OCPP 1.6)
     ws.on("message", (message) => {
@@ -120,7 +102,7 @@ wss.on("connection", (ws, req) => {
         ws.send(JSON.stringify(messageWithComment));
     });
 
-    // 📥 Handle WebSocket Disconnection
+    // ❌ Handle WebSocket Disconnection
     ws.on("close", () => {
         console.log(`🔌 Charge Point ${stationId} Disconnected`);
 
@@ -135,16 +117,13 @@ wss.on("connection", (ws, req) => {
         };
 
         console.log(`📥 Updating Device Shadow for ${stationId} (Disconnected)`);
-        const deviceShadow = deviceShadows[stationId];
-        if (deviceShadow) {
-            deviceShadow.update(stationId, disconnectShadowPayload, function (err, data) {
-                if (err) {
-                    console.error(`❌ Shadow Update Error for ${stationId}:`, err);
-                } else {
-                    console.log(`✅ Shadow Update Success for ${stationId}:`, JSON.stringify(data));
-                }
-            });
-        }
+        deviceShadow.update(stationId, disconnectShadowPayload, function (err, data) {
+            if (err) {
+                console.error(`❌ Shadow Update Error for ${stationId}:`, err);
+            } else {
+                console.log(`✅ Shadow Update Success for ${stationId}:`, JSON.stringify(data));
+            }
+        });
     });
 });
 
