@@ -19,7 +19,7 @@ const serverOptions = {
 const server = https.createServer(serverOptions);
 const wss = new WebSocket.Server({ server });
 
-console.log("🚀 Secure WebSocket (WSS) server started on wss://ocpp.yourdomain.com:8080");
+console.log("🚀 Secure WebSocket (WSS) server started on wss://host.aizoplug.com:8080");
 
 // 📡 Connect to AWS IoT MQTT Broker
 const mqttClient = mqtt.connect(`mqtts://${AWS_IOT_HOST}`, {
