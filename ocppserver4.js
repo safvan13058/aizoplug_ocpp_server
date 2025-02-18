@@ -1,31 +1,44 @@
+const fs = require("fs");
+const https = require("https");
 const WebSocket = require("ws");
 const mqtt = require("mqtt");
 const awsIot = require("aws-iot-device-sdk");
-const fs = require("fs");
 const url = require("url");
 
-const MQTT_TOPIC_BASE = "ocpp/chargingpoint/";
+// 🌐 AWS IoT MQTT Broker
 const AWS_IOT_HOST = "an1ua1ij15hp7-ats.iot.ap-south-1.amazonaws.com";
+const MQTT_TOPIC_BASE = "ocpp/chargingpoint/";
 
-const wss = new WebSocket.Server({ port: 8080 });
-console.log("🚀 OCPP WebSocket server started on ws://13.235.49.231:8080");
+// 🛡️ SSL Certificates for Secure WebSockets (WSS)
+const serverOptions = {
+    key: fs.readFileSync("/etc/letsencrypt/live/host.aizoplug.com/privkey.pem"),
+    cert: fs.readFileSync("/etc/letsencrypt/live/host.aizoplug.com/fullchain.pem"),
+};
 
+// 🔌 Create HTTPS Server for WebSocket Secure (WSS)
+const server = https.createServer(serverOptions);
+const wss = new WebSocket.Server({ server, path: '/websocket/CentralSystemService' });
+
+console.log("🚀 Secure WebSocket (WSS) server started on wss://host.aizoplug.com:8080/websocket/CentralSystemService");
+
+// 📡 Connect to AWS IoT MQTT Broker
 const mqttClient = mqtt.connect(`mqtts://${AWS_IOT_HOST}`, {
     key: fs.readFileSync("private.pem.key"),
     cert: fs.readFileSync("certificate.pem.crt"),
     ca: fs.readFileSync("AmazonRootCA1.pem"),
-
 });
 
-mqttClient.on("connect", () => console.log("✅ Connected to MQTT broker"));
+mqttClient.on("connect", () => console.log("✅ Connected to AWS IoT Core (MQTT Broker)"));
 mqttClient.on("error", (error) => console.error("❌ MQTT Connection Error:", error));
 
+// 🌍 Handle WebSocket Connections (Charge Points)
 wss.on("connection", (ws, req) => {
     const queryParams = url.parse(req.url, true).query;
-    const stationId = queryParams.stationId ||  req.socket.remoteAddress.replace(/^::ffff:/, "");
-    console.log(`payload${req.socket}`)
-    console.log(`🔌 New charge point connected: ${stationId}`);
+    const stationId = queryParams.stationId || req.socket.remoteAddress.replace(/^::ffff:/, "");
 
+    console.log(`🔌 Charge Point Connected: ${stationId}`);
+
+    // 📡 AWS IoT Device Shadow
     const deviceShadow = awsIot.thingShadow({
         keyPath: "private.pem.key",
         certPath: "certificate.pem.crt",
@@ -39,6 +52,7 @@ wss.on("connection", (ws, req) => {
         deviceShadow.register(stationId, {}, () => console.log(`✅ Registered Shadow for ${stationId}`));
     });
 
+    // 📩 Handle Incoming WebSocket Messages (OCPP 1.6)
     ws.on("message", (message) => {
         console.log("📩 Received OCPP message:", message.toString());
         try {
@@ -63,9 +77,11 @@ wss.on("connection", (ws, req) => {
             console.error("❌ Error parsing OCPP message:", error);
         }
     });
+
+    // 📥 Handle Incoming MQTT Messages (AWS IoT)
     mqttClient.on("message", (topic, message) => {
         console.log(`📥 Received MQTT message on ${topic}:`, message.toString());
-        
+
         let comment = "";
         if (topic.includes("remote/start")) {
             comment = "🚀 Remote Start Command Received. Preparing to start charging...";
@@ -86,9 +102,10 @@ wss.on("connection", (ws, req) => {
         ws.send(JSON.stringify(messageWithComment));
     });
 
+    // ❌ Handle WebSocket Disconnection
     ws.on("close", () => {
-        console.log(`🔌 Charge point ${stationId} disconnected`);
-        
+        console.log(`🔌 Charge Point ${stationId} Disconnected`);
+
         const disconnectShadowPayload = {
             state: {
                 reported: {
@@ -108,4 +125,9 @@ wss.on("connection", (ws, req) => {
             }
         });
     });
+});
+
+// 🌐 Start Secure WebSocket Server
+server.listen(8080, () => {
+    console.log("🚀 Secure OCPP WebSocket Server Running on wss://host.aizoplug.com:8080/websocket/CentralSystemService");
 });
