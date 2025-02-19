@@ -135,7 +135,7 @@ wss.on("connection", (ws, req) => {
 });
 
 // 🌐 Start Secure WebSocket Server on port 443
-server.listen(443, () => {
+server.listen(8443, () => {
     console.log("🚀 Secure OCPP WebSocket Server Running on wss://host.aizoplug.com:443/websocket/CentralSystemService");
 });
 
