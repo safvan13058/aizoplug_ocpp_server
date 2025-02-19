@@ -60,7 +60,16 @@ wss.on("connection", (ws, req) => {
             const messageId = parsedMessage[1];
             const ocppAction = parsedMessage[2] || "unknown_action";
             const payload = parsedMessage[3] || {};
-
+            if (ocppAction === "BootNotification") {
+                const response = [3, messageId, {
+                    currentTime: new Date().toISOString(),
+                    interval: 300,
+                    status: "Accepted",
+                }];
+                ws.send(JSON.stringify(response));
+                console.log("✅ Responded: BootNotification Accepted");
+                return;
+            }
             if (ocppAction === "Authorize") {
                 // 🟢 Always accept authorization for now
                 const response = [3, messageId, { "idTagInfo": { "status": "Accepted" } }];
@@ -128,6 +137,6 @@ wss.on("connection", (ws, req) => {
 });
 
 // 🌐 Start Secure WebSocket Server
-server.listen(8080, () => {
+server.listen(8443, () => {
     console.log("🚀 Secure OCPP WebSocket Server Running on wss://ocpp.yourdomain.com:8080");
 });
