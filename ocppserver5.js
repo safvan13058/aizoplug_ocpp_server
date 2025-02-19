@@ -137,6 +137,6 @@ wss.on("connection", (ws, req) => {
 });
 
 // 🌐 Start Secure WebSocket Server
-server.listen(8443, () => {
+server.listen(8080, () => {
     console.log("🚀 Secure OCPP WebSocket Server Running on wss://ocpp.yourdomain.com:8080");
 });
