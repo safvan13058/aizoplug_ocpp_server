@@ -9,19 +9,14 @@ const url = require("url");
 const AWS_IOT_HOST = "an1ua1ij15hp7-ats.iot.ap-south-1.amazonaws.com";
 const MQTT_TOPIC_BASE = "ocpp/chargingpoint/";
 
-// 🛡️ SSL Certificates for Secure WebSockets (WSS)
+// 🛡️ SSL Certificates for WSS
 const serverOptions = {
     key: fs.readFileSync("/etc/letsencrypt/live/host.aizoplug.com/privkey.pem"),
     cert: fs.readFileSync("/etc/letsencrypt/live/host.aizoplug.com/fullchain.pem"),
+    secureProtocol: "TLS_method", // Ensures TLS 1.2+
 };
 
-// 🔌 Create HTTPS Server for WebSocket Secure (WSS)
-const server = https.createServer(serverOptions);
-const wss = new WebSocket.Server({ server, path: '/websocket/CentralSystemService' });
-
-console.log("🚀 Secure WebSocket (WSS) server started on wss://host.aizoplug.com:8080/websocket/CentralSystemService");
-
-// 📡 Connect to AWS IoT MQTT Broker
+// 📡 Connect to AWS IoT MQTT Broker (single connection)
 const mqttClient = mqtt.connect(`mqtts://${AWS_IOT_HOST}`, {
     key: fs.readFileSync("private.pem.key"),
     cert: fs.readFileSync("certificate.pem.crt"),
@@ -30,6 +25,12 @@ const mqttClient = mqtt.connect(`mqtts://${AWS_IOT_HOST}`, {
 
 mqttClient.on("connect", () => console.log("✅ Connected to AWS IoT Core (MQTT Broker)"));
 mqttClient.on("error", (error) => console.error("❌ MQTT Connection Error:", error));
+
+// 🔌 Create HTTPS Server for WSS
+const server = https.createServer(serverOptions);
+const wss = new WebSocket.Server({ server, path: '/websocket/CentralSystemService' });
+
+console.log("🚀 Secure WebSocket (WSS) server starting...");
 
 // 🌍 Handle WebSocket Connections (Charge Points)
 wss.on("connection", (ws, req) => {
@@ -52,51 +53,56 @@ wss.on("connection", (ws, req) => {
         deviceShadow.register(stationId, {}, () => console.log(`✅ Registered Shadow for ${stationId}`));
     });
 
+    deviceShadow.on("error", (err) => console.error(`❌ Device Shadow Error (${stationId}):`, err));
+
     // 📩 Handle Incoming WebSocket Messages (OCPP 1.6)
     ws.on("message", (message) => {
         console.log("📩 Received OCPP message:", message.toString());
         try {
             const parsedMessage = JSON.parse(message);
-            const messageId = parsedMessage[1];
-            const ocppAction = parsedMessage[2] || "unknown_action";
-            const payload = parsedMessage[3] || {};
+            const [messageType, messageId, ocppAction, payload] = parsedMessage;
+
+            if (ocppAction === "BootNotification") {
+                const response = [3, messageId, {
+                    currentTime: new Date().toISOString(),
+                    interval: 300,
+                    status: "Accepted",
+                }];
+                ws.send(JSON.stringify(response));
+                console.log("✅ Responded: BootNotification Accepted");
+                return;
+            }
 
             if (ocppAction === "Authorize") {
-                // 🟢 Always accept authorization for now
-                const response = [3, messageId, { "idTagInfo": { "status": "Accepted" } }];
+                const response = [3, messageId, { idTagInfo: { status: "Accepted" } }];
                 ws.send(JSON.stringify(response));
-                console.log("✅ Sent: Authorize Accepted");
+                console.log("✅ Responded: Authorize Accepted");
                 return;
             }
 
             console.log(`📡 Station ID: ${stationId}, Action: ${ocppAction}`);
-            let mqttTopic = `${MQTT_TOPIC_BASE}${stationId}/${ocppAction || "unknown"}`;
-            console.log(`📤 Publishing to topic: ${mqttTopic}`);
-            mqttClient.publish(mqttTopic, JSON.stringify(payload));
+            const mqttTopic = `${MQTT_TOPIC_BASE}${stationId}/${ocppAction || "unknown"}`;
+            mqttClient.publish(mqttTopic, JSON.stringify(payload), () => {
+                console.log(`📤 Published to topic: ${mqttTopic}`);
+            });
+
         } catch (error) {
             console.error("❌ Error parsing OCPP message:", error);
         }
     });
 
-    // 📥 Handle Incoming MQTT Messages (AWS IoT)
+    // 📥 Handle Incoming MQTT Messages (AWS IoT → Charger)
     mqttClient.on("message", (topic, message) => {
         console.log(`📥 Received MQTT message on ${topic}:`, message.toString());
-
-        let comment = "";
-        if (topic.includes("remote/start")) {
-            comment = "🚀 Remote Start Command Received. Preparing to start charging...";
-        } else if (topic.includes("remote/stop")) {
-            comment = "🛑 Remote Stop Command Received. Stopping the charging session...";
-        } else if (topic.includes("reset")) {
-            comment = "🔄 Reset Command Received. Rebooting the charger...";
-        } else if (topic.includes("unlock")) {
-            comment = "🔓 Unlock Connector Command Received. Attempting to unlock...";
-        }
+        const comment = topic.includes("remote/start") ? "🚀 Remote Start Command Received" :
+                         topic.includes("remote/stop") ? "🛑 Remote Stop Command Received" :
+                         topic.includes("reset") ? "🔄 Reset Command Received" :
+                         topic.includes("unlock") ? "🔓 Unlock Connector Command Received" : "";
 
         const messageWithComment = {
             topic: topic,
             data: JSON.parse(message.toString()),
-            comment: comment
+            comment: comment,
         };
 
         ws.send(JSON.stringify(messageWithComment));
@@ -117,17 +123,22 @@ wss.on("connection", (ws, req) => {
         };
 
         console.log(`📥 Updating Device Shadow for ${stationId} (Disconnected)`);
-        deviceShadow.update(stationId, disconnectShadowPayload, function (err, data) {
-            if (err) {
-                console.error(`❌ Shadow Update Error for ${stationId}:`, err);
-            } else {
-                console.log(`✅ Shadow Update Success for ${stationId}:`, JSON.stringify(data));
-            }
+        deviceShadow.update(stationId, disconnectShadowPayload, (err, data) => {
+            if (err) console.error(`❌ Shadow Update Error for ${stationId}:`, err);
+            else console.log(`✅ Shadow Update Success for ${stationId}:`, JSON.stringify(data));
         });
+    });
+
+    ws.on("error", (err) => {
+        console.error(`❌ WebSocket Error for ${stationId}:`, err);
     });
 });
 
-// 🌐 Start Secure WebSocket Server
-server.listen(8080, () => {
-    console.log("🚀 Secure OCPP WebSocket Server Running on wss://host.aizoplug.com:8080/websocket/CentralSystemService");
+// 🌐 Start Secure WebSocket Server on port 443
+server.listen(443, () => {
+    console.log("🚀 Secure OCPP WebSocket Server Running on wss://host.aizoplug.com:443/websocket/CentralSystemService");
+});
+
+server.on("error", (err) => {
+    console.error("❌ HTTPS Server Error:", err);
 });
