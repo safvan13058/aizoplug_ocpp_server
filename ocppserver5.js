@@ -60,24 +60,68 @@ wss.on("connection", (ws, req) => {
             const messageId = parsedMessage[1];
             const ocppAction = parsedMessage[2] || "unknown_action";
             const payload = parsedMessage[3] || {};
-            if (ocppAction === "BootNotification") {
-                const response = [3, messageId, {
-                    currentTime: new Date().toISOString(),
-                    interval: 300,
-                    status: "Accepted",
-                }];
-                ws.send(JSON.stringify(response));
-                console.log("✅ Responded: BootNotification Accepted");
-                return;
-            }
-            if (ocppAction === "Authorize") {
-                // 🟢 Always accept authorization for now
-                const response = [3, messageId, { "idTagInfo": { "status": "Accepted" } }];
-                ws.send(JSON.stringify(response));
-                console.log("✅ Sent: Authorize Accepted");
-                return;
+            // if (ocppAction === "BootNotification") {
+            //     const response = [3, messageId, {
+            //         currentTime: new Date().toISOString(),
+            //         interval: 300,
+            //         status: "Accepted",
+            //     }];
+            //     ws.send(JSON.stringify(response));
+            //     console.log("✅ Responded: BootNotification Accepted");
+            //     return;
+            // }
+            // if (ocppAction === "Authorize") {
+            //     // 🟢 Always accept authorization for now
+            //     const response = [3, messageId, { "idTagInfo": { "status": "Accepted" } }];
+            //     ws.send(JSON.stringify(response));
+            //     console.log("✅ Sent: Authorize Accepted");
+            //     return;
+            // }
+            let response;
+            switch (ocppAction) {
+                case "BootNotification":
+                    response = [3, messageId, {
+                        currentTime: new Date().toISOString(),
+                        interval: 300,
+                        status: "Accepted",
+                    }];
+                    console.log("✅ Responded: BootNotification Accepted");
+                    break;
+
+                case "Authorize":
+                    response = [3, messageId, { idTagInfo: { status: "Accepted" } }];
+                    console.log("✅ Responded: Authorize Accepted");
+                    break;
+
+                case "StartTransaction":
+                    response = [3, messageId, {
+                        transactionId: Math.floor(Math.random() * 100000),
+                        idTagInfo: { status: "Accepted" },
+                    }];
+                    console.log("✅ Responded: StartTransaction Accepted");
+                    break;
+
+                case "StopTransaction":
+                    response = [3, messageId, { idTagInfo: { status: "Accepted" } }];
+                    console.log("✅ Responded: StopTransaction Accepted");
+                    break;
+
+                case "Heartbeat":
+                    response = [3, messageId, { currentTime: new Date().toISOString() }];
+                    console.log("✅ Responded: Heartbeat");
+                    break;
+
+                case "StatusNotification":
+                    response = [3, messageId, {}];
+                    console.log("✅ Responded: StatusNotification Acknowledged");
+                    break;
+
+                default:
+                    response = [4, messageId, "NotImplemented", "Action not supported."];
+                    console.log(`⚠️ Responded: ${ocppAction} not implemented`);
             }
 
+            ws.send(JSON.stringify(response));
             console.log(`📡 Station ID: ${stationId}, Action: ${ocppAction}`);
             let mqttTopic = `${MQTT_TOPIC_BASE}${stationId}/${ocppAction || "unknown"}`;
             console.log(`📤 Publishing to topic: ${mqttTopic}`);
