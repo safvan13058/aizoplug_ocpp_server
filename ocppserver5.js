@@ -30,6 +30,42 @@ const mqttClient = mqtt.connect(`mqtts://${AWS_IOT_HOST}`, {
 
 mqttClient.on("connect", () => console.log("✅ Connected to AWS IoT Core (MQTT Broker)"));
 mqttClient.on("error", (error) => console.error("❌ MQTT Connection Error:", error));
+/**
+ * 🚀 Send RemoteStartTransaction to the Charge Point
+ * @param {WebSocket} ws - WebSocket connection
+ * @param {string} idTag - Authorization tag (default: "TEST_ID_TAG")
+ * @param {number} connectorId - Connector to start transaction (default: 1)
+ */
+function sendRemoteStartTransaction(ws, idTag = "TEST_ID_TAG", connectorId = 1) {
+    const messageId = Math.random().toString(36).substring(2, 10); // Unique Message ID
+    const remoteStartMessage = [
+        2,                         // CALL message type
+        messageId,                 // Unique message ID
+        "RemoteStartTransaction",  // OCPP Action
+        { idTag, connectorId }     // Payload
+    ];
+
+    ws.send(JSON.stringify(remoteStartMessage));
+    console.log(`📤 Sent RemoteStartTransaction: ${JSON.stringify(remoteStartMessage)}`);
+}
+
+/**
+ * 🛑 Send RemoteStopTransaction to the Charge Point
+ * @param {WebSocket} ws - WebSocket connection
+ * @param {number} transactionId - Transaction ID to stop
+ */
+function sendRemoteStopTransaction(ws, transactionId) {
+    const messageId = Math.random().toString(36).substring(2, 10); // Unique Message ID
+    const remoteStopMessage = [
+        2,                         // CALL message type
+        messageId,                 // Unique message ID
+        "RemoteStopTransaction",   // OCPP Action
+        { transactionId }          // Payload
+    ];
+
+    ws.send(JSON.stringify(remoteStopMessage));
+    console.log(`📤 Sent RemoteStopTransaction: ${JSON.stringify(remoteStopMessage)}`);
+}
 
 // 🌍 Handle WebSocket Connections (Charge Points)
 wss.on("connection", (ws, req) => {
@@ -99,12 +135,19 @@ wss.on("connection", (ws, req) => {
                         idTagInfo: { status: "Accepted" },
                     }];
                     console.log("✅ Responded: StartTransaction Accepted");
+                    const { idTag = "TEST_ID_TAG", connectorId = 1 } = payload;
+                    sendRemoteStartTransaction(ws, idTag, connectorId);
                     break;
 
                 case "StopTransaction":
                     response = [3, messageId, { idTagInfo: { status: "Accepted" } }];
                     console.log("✅ Responded: StopTransaction Accepted");
+                    // 🚀 Send RemoteStartTransaction after receiving StartTransaction
+                    // 🛑 Send RemoteStopTransaction after receiving StopTransaction
+                    const { transactionId = 1 } = payload;
+                    sendRemoteStopTransaction(ws, transactionId);
                     break;
+
 
                 case "Heartbeat":
                     response = [3, messageId, { currentTime: new Date().toISOString() }];
