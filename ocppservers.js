@@ -103,6 +103,6 @@ wss.on("connection", (ws, req) => {
 });
 
 // 🌐 Start WebSocket Server on Port 80
-const PORT = 8080;
+const PORT = 80;
 server.listen(PORT, () => console.log(`🚀 WebSocket server running on port ${PORT}`));
 
