@@ -103,6 +103,6 @@ wss.on("connection", (ws, req) => {
 });
 
 // 🌐 Start WebSocket Server on Port 80
-server.listen(80, () => {
-    console.log("🚀 OCPP WebSocket Server Running on ws://host.aizoplug.com:80");
-});
+const PORT = 8080;
+server.listen(PORT, () => console.log(`🚀 WebSocket server running on port ${PORT}`));
+
