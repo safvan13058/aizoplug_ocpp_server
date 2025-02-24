@@ -3,7 +3,7 @@ const WebSocket = require("ws");
 const mqtt = require("mqtt");
 const awsIot = require("aws-iot-device-sdk");
 const url = require("url");
-
+const fs =require("fs");
 // 🌐 AWS IoT MQTT Broker
 const AWS_IOT_HOST = "an1ua1ij15hp7-ats.iot.ap-south-1.amazonaws.com";
 const MQTT_TOPIC_BASE = "ocpp/chargingpoint/";
