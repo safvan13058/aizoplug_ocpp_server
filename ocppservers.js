@@ -9,7 +9,7 @@ const fs = require("fs");
 const AWS_IOT_HOST = "an1ua1ij15hp7-ats.iot.ap-south-1.amazonaws.com";
 const MQTT_TOPIC_BASE = "ocpp/chargingpoint/";
 
-// 🌍 Create HTTP Server for WebSocket (OCPP Communication)
+// 🌍 Create HTTP Server for WebSocket
 const server = http.createServer();
 const wss = new WebSocket.Server({ server });
 
@@ -25,135 +25,155 @@ const mqttClient = mqtt.connect(`mqtts://${AWS_IOT_HOST}`, {
 mqttClient.on("connect", () => console.log("✅ Connected to AWS IoT Core (MQTT Broker)"));
 mqttClient.on("error", (error) => console.error("❌ MQTT Connection Error:", error));
 
-// 🌍 Handle WebSocket (Charge Point) Connections
+// 🚀 WebSocket (Charge Point) Connection Handling
 wss.on("connection", (ws, req) => {
-    const queryParams = url.parse(req.url, true).query;
-    const stationId = queryParams.stationId || req.socket.remoteAddress.replace(/^::ffff:/, "");
+    // Assign temporary stationId from URL or IP
+    let stationId = url.parse(req.url, true).query.stationId || req.socket.remoteAddress.replace(/^::ffff:/, "");
+    console.log(`🔌 Charge Point Connected (Temporary ID): ${stationId}`);
 
-    console.log(`🔌 Charge Point Connected: ${stationId}`);
+    let deviceShadow;
+    let isStationIdUpdated = false;
 
-    const deviceShadow = awsIot.thingShadow({
-        keyPath: "private.pem.key",
-        certPath: "certificate.pem.crt",
-        caPath: "AmazonRootCA1.pem",
-        clientId: stationId,
-        host: AWS_IOT_HOST,
-    });
+    const subscribeToRemoteCommands = (stationId) => {
+        const remoteStartTopic = `${MQTT_TOPIC_BASE}${stationId}/RemoteStartTransaction`;
+        const remoteStopTopic = `${MQTT_TOPIC_BASE}${stationId}/RemoteStopTransaction`;
 
-    deviceShadow.on("connect", () => {
-        console.log(`✅ Connected to Device Shadow for ${stationId}`);
-        deviceShadow.register(stationId, {}, () => console.log(`✅ Registered Shadow for ${stationId}`));
-    });
+        mqttClient.subscribe([remoteStartTopic, remoteStopTopic], (err) => {
+            if (err) console.error(`❌ Subscription Error for ${stationId}:`, err);
+            else console.log(`📡 Subscribed to Remote Start/Stop Topics for ${stationId}`);
+        });
+    };
 
-    // 🔄 Subscribe to MQTT Topics for Remote Commands
-    const remoteStartTopic = `${MQTT_TOPIC_BASE}${stationId}/RemoteStartTransaction`;
-    const remoteStopTopic = `${MQTT_TOPIC_BASE}${stationId}/RemoteStopTransaction`;
-    mqttClient.subscribe([remoteStartTopic, remoteStopTopic], (err) => {
-        if (err) console.error(`❌ Subscription Error:`, err);
-        else console.log(`📡 Subscribed to Remote Start/Stop Topics for ${stationId}`);
-    });
+    const initializeDeviceShadow = (stationId) => {
+        deviceShadow = awsIot.thingShadow({
+            keyPath: "private.pem.key",
+            certPath: "certificate.pem.crt",
+            caPath: "AmazonRootCA1.pem",
+            clientId: stationId,
+            host: AWS_IOT_HOST,
+        });
 
-    // 📥 Handle Remote Start/Stop Commands from MQTT
-    mqttClient.on("message", (topic, message) => {
-        console.log(`📥 MQTT Message on ${topic}:`, message.toString());
-        const payload = JSON.parse(message.toString());
+        deviceShadow.on("connect", () => {
+            console.log(`✅ Connected to Device Shadow for ${stationId}`);
+            deviceShadow.register(stationId, {}, () => console.log(`✅ Registered Shadow for ${stationId}`));
+        });
+    };
 
-        if (topic === remoteStartTopic) {
-            const startCommand = [2, `${Date.now()}`, "RemoteStartTransaction", { idTag: payload.idTag }];
-            ws.send(JSON.stringify(startCommand));
-            console.log(`▶️ Sent RemoteStartTransaction to ${stationId}`);
-        }
-
-        if (topic === remoteStopTopic) {
-            const stopCommand = [2, `${Date.now()}`, "RemoteStopTransaction", { transactionId: payload.transactionId }];
-            ws.send(JSON.stringify(stopCommand));
-            console.log(`⏹️ Sent RemoteStopTransaction to ${stationId}`);
-        }
-    });
-
-    // 📩 Handle Messages from Charge Point (WebSocket)
+    // 📥 Handle WebSocket Messages (from Charge Point)
     ws.on("message", (message) => {
         console.log("📩 Received OCPP Message:", message.toString());
+
         try {
-            const parsedMessage = JSON.parse(message);
-            const [messageType, messageId, action, payload] = parsedMessage;
+            const [messageType, messageId, action, payload] = JSON.parse(message);
 
+            // 🚀 Handle BootNotification to extract stationId
+            if (action === "BootNotification" && payload.chargePointSerialNumber && !isStationIdUpdated) {
+                stationId = payload.chargePointSerialNumber;  // Update stationId (e.g., "cp_3")
+                isStationIdUpdated = true;
+
+                console.log(`✅ Updated Station ID: ${stationId}`);
+                initializeDeviceShadow(stationId);          // Initialize device shadow
+                subscribeToRemoteCommands(stationId);       // Subscribe to remote commands
+
+                const bootResponse = [3, messageId, {
+                    currentTime: new Date().toISOString(),
+                    interval: 300,
+                    status: "Accepted"
+                }];
+                ws.send(JSON.stringify(bootResponse));
+                console.log(`✅ Responded to BootNotification for ${stationId}`);
+                return;
+            }
+
+            // 📡 Handle OCPP Actions and Respond
             let response;
-
             switch (action) {
-                case "BootNotification":
-                    response = [3, messageId, { currentTime: new Date().toISOString(), interval: 300, status: "Accepted" }];
-                    break;
-
                 case "Authorize":
                     response = [3, messageId, { idTagInfo: { status: "Accepted" } }];
                     break;
-
                 case "StartTransaction":
-                    response = [3, messageId, { transactionId: Math.floor(Math.random() * 100000), idTagInfo: { status: "Accepted" } }];
+                    response = [3, messageId, {
+                        transactionId: Math.floor(Math.random() * 100000),
+                        idTagInfo: { status: "Accepted" }
+                    }];
                     break;
-
                 case "StopTransaction":
                     response = [3, messageId, { idTagInfo: { status: "Accepted" } }];
                     break;
-
                 case "Heartbeat":
                     response = [3, messageId, { currentTime: new Date().toISOString() }];
                     break;
-
+                case "StatusNotification":
+                    response = [3, messageId, {}];
+                    break;
                 case "RemoteStartTransaction":
                 case "RemoteStopTransaction":
                     response = [3, messageId, { status: "Accepted" }];
                     break;
-
                 default:
                     response = [4, messageId, "NotImplemented", "Action not supported."];
             }
 
             ws.send(JSON.stringify(response));
-            console.log(`✅ Responded to ${action} from ${stationId}`);
+            console.log(`✅ Responded to ${action} for ${stationId}`);
 
-            // 📡 Publish to MQTT for Monitoring
+            // 🔔 Publish payload to MQTT for monitoring
             const mqttTopic = `${MQTT_TOPIC_BASE}${stationId}/${action}`;
             mqttClient.publish(mqttTopic, JSON.stringify(payload));
 
-            // 📢 Update Device Shadow Status
+            // 📢 Update Device Shadow on Start/Stop Transaction
             if (["StartTransaction", "StopTransaction"].includes(action)) {
+                const status = action === "StartTransaction" ? "charging" : "idle";
                 deviceShadow.update(stationId, {
                     state: {
                         reported: {
                             stationId,
-                            status: action === "StartTransaction" ? "charging" : "idle",
+                            status,
                             transactionId: payload.transactionId || null,
                             timestamp: new Date().toISOString(),
                         },
                     },
                 }, (err) => {
                     if (err) console.error(`❌ Shadow Update Error:`, err);
-                    else console.log(`✅ Shadow Updated for ${stationId} (${action})`);
+                    else console.log(`✅ Shadow Updated (${status}) for ${stationId}`);
                 });
             }
 
-        } catch (error) {
-            console.error("❌ Error handling OCPP message:", error);
+        } catch (err) {
+            console.error("❌ Error parsing OCPP message:", err);
         }
     });
 
-    // 🔌 Handle WebSocket Disconnection
+    // 📥 Handle MQTT Remote Start/Stop Commands
+    mqttClient.on("message", (topic, message) => {
+        console.log(`📥 MQTT Message on ${topic}:`, message.toString());
+        if (!isStationIdUpdated) return; // Ignore if stationId not set
+
+        const payload = JSON.parse(message.toString());
+        const action = topic.includes("RemoteStartTransaction") ? "RemoteStartTransaction" : "RemoteStopTransaction";
+        const command = [2, `${Date.now()}`, action, payload];
+
+        ws.send(JSON.stringify(command));
+        console.log(`▶️ Sent ${action} to Charge Point (${stationId})`);
+    });
+
+    // 🔌 Handle Charge Point Disconnection
     ws.on("close", () => {
         console.log(`🔌 Charge Point ${stationId} Disconnected`);
-        deviceShadow.update(stationId, {
-            state: {
-                reported: {
-                    stationId,
-                    status: "disconnected",
-                    timestamp: new Date().toISOString(),
+        if (deviceShadow) {
+            deviceShadow.update(stationId, {
+                state: {
+                    reported: {
+                        stationId,
+                        status: "disconnected",
+                        timestamp: new Date().toISOString(),
+                    },
                 },
-            },
-        }, (err) => {
-            if (err) console.error(`❌ Shadow Update Error:`, err);
-            else console.log(`✅ Shadow Updated: ${stationId} is disconnected`);
-        });
+            }, (err) => {
+                if (err) console.error(`❌ Shadow Update Error:`, err);
+                else console.log(`✅ Shadow Updated: ${stationId} disconnected`);
+            });
+        }
     });
 });
 
