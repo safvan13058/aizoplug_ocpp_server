@@ -10,6 +10,7 @@ const AWS_IOT_HOST = "an1ua1ij15hp7-ats.iot.ap-south-1.amazonaws.com";
 const MQTT_TOPIC_BASE = "ocpp/chargingpoint/";
 
 // 🛡️ SSL Certificates for Secure WebSockets (WSS)
+
 const serverOptions = {
     key: fs.readFileSync("/etc/letsencrypt/live/host.aizoplug.com/privkey.pem"),
     cert: fs.readFileSync("/etc/letsencrypt/live/host.aizoplug.com/fullchain.pem"),
@@ -135,8 +136,8 @@ wss.on("connection", (ws, req) => {
                         idTagInfo: { status: "Accepted" },
                     }];
                     console.log("✅ Responded: StartTransaction Accepted");
-                    const { idTag = "TEST_ID_TAG", connectorId = 1 } = payload;
-                    sendRemoteStartTransaction(ws, idTag, connectorId);
+                    // const { idTag = "TEST_ID_TAG", connectorId = 1 } = payload;
+                    // sendRemoteStartTransaction(ws, idTag, connectorId);
                     break;
 
                 case "StopTransaction":
@@ -144,8 +145,8 @@ wss.on("connection", (ws, req) => {
                     console.log("✅ Responded: StopTransaction Accepted");
                     // 🚀 Send RemoteStartTransaction after receiving StartTransaction
                     // 🛑 Send RemoteStopTransaction after receiving StopTransaction
-                    const { transactionId = 1 } = payload;
-                    sendRemoteStopTransaction(ws, transactionId);
+                    // const { transactionId = 1 } = payload;
+                    // sendRemoteStopTransaction(ws, transactionId);
                     break;
 
 
@@ -179,9 +180,9 @@ wss.on("connection", (ws, req) => {
         console.log(`📥 Received MQTT message on ${topic}:`, message.toString());
 
         let comment = "";
-        if (topic.includes("remote/start")) {
+        if (topic.includes("RemoteStartTransaction")) {
             comment = "🚀 Remote Start Command Received. Preparing to start charging...";
-        } else if (topic.includes("remote/stop")) {
+        } else if (topic.includes("RemoteStopTransaction")) {
             comment = "🛑 Remote Stop Command Received. Stopping the charging session...";
         } else if (topic.includes("reset")) {
             comment = "🔄 Reset Command Received. Rebooting the charger...";

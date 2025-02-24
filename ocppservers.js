@@ -79,7 +79,7 @@ wss.on("connection", (ws, req) => {
             ws.send(JSON.stringify(response));
             console.log(`📡 Station ID: ${stationId}, Action: ${ocppAction}`);
 
-            const mqttTopic = `${MQTT_TOPIC_BASE}${stationId}/${ocppAction}`;
+            const mqttTopic = `${MQTT_TOPIC_BASE}/${stationId}/${ocppAction}`;
             mqttClient.publish(mqttTopic, JSON.stringify(payload));
         } catch (error) {
             console.error("❌ Error parsing OCPP message:", error);
