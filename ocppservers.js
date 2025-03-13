@@ -150,7 +150,16 @@ wss.on("connection", (ws, req) => {
 
         if (direction !== "in" || stationId !== incomingStationId) return;  // Ignore unrelated messages
 
-        const payload = JSON.parse(message.toString());
+         // ✅ Ensure message is properly formatted
+         const trimmedMessage = message.toString().trim(); // Remove extra spaces & newlines
+
+         // ✅ Check if the message is valid JSON
+         if (!trimmedMessage.startsWith("{") || !trimmedMessage.endsWith("}")) {
+             console.error("❌ Invalid JSON format in MQTT message:", trimmedMessage);
+             return;
+         }
+ 
+         const payload = JSON.parse(trimmedMessage);
         const action = payload.action || "RemoteStartTransaction";  // Default to RemoteStartTransaction if not provided
 
         const command = [2, `${Date.now()}`, action, payload.data || {}];
@@ -176,6 +185,8 @@ wss.on("connection", (ws, req) => {
             });
         }
     });
+
+
 });
 
 // 🌐 Start WebSocket Server
