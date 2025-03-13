@@ -45,19 +45,23 @@ wss.on("connection", (ws, req) => {
     let isStationIdUpdated = false;
 
     const initializeDeviceShadow = (stationId) => {
-        deviceShadow = awsIot.thingShadow({
+        const deviceShadow = awsIot.thingShadow({
             keyPath: "private.pem.key",
-            certPath: "certificate.pem.crt",
+            certPath: "certificate.pem.crt", 
             caPath: "AmazonRootCA1.pem",
             clientId: stationId,
             host: AWS_IOT_HOST,
         });
-
+    
         deviceShadow.on("connect", () => {
             console.log(`✅ Connected to Device Shadow for ${stationId}`);
             deviceShadow.register(stationId, {}, () => console.log(`✅ Registered Shadow for ${stationId}`));
         });
+    
+        // 🛠 Store deviceShadow inside connectedStations for later access
+        connectedStations[stationId].deviceShadow = deviceShadow;
     };
+    
 
     // 📥 Handle WebSocket Messages (from Charge Point)
     ws.on("message", (message) => {
@@ -165,17 +169,23 @@ wss.on("connection", (ws, req) => {
     });
 });
 const updateDeviceShadow = (stationId, action, payload) => {
-    const chargePoint = connectedStations[stationId] || { payloads: {} };
-    
-    // Store all OCPP actions in the shadow dynamically
-    chargePoint.payloads[action] = payload;
-    
+    if (!connectedStations[stationId]) {
+        console.error(`⚠️ Charge point ${stationId} not found in connectedStations`);
+        return;
+    }
+
+    const deviceShadow = connectedStations[stationId].deviceShadow;
+    if (!deviceShadow) {
+        console.error(`⚠️ Device Shadow not initialized for ${stationId}`);
+        return;
+    }
+
+    // Store all OCPP actions dynamically
+    connectedStations[stationId].payloads[action] = payload;
+
     const shadowData = {
         state: {
-            stationId,
-            action: action,
-            reported: chargePoint.payloads,
-            timestamp: new Date().toISOString(),
+            reported: connectedStations[stationId].payloads
         }
     };
 
@@ -184,6 +194,7 @@ const updateDeviceShadow = (stationId, action, payload) => {
         else console.log(`✅ Shadow Updated for ${stationId}`);
     });
 };
+
 
 // 🌐 Start WebSocket Server
 const PORT = 80;
