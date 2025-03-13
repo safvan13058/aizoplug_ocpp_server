@@ -78,6 +78,25 @@ wss.on("connection", (ws, req) => {
                     status: "Accepted",
                 }];
                 ws.send(JSON.stringify(bootResponse));
+                if (action) {
+                    console.log("shadowworking===action====",action)
+                    console.log("shadowworking=payload======",payload)
+    
+                    deviceShadow.update(stationId, {
+                        state: {
+                            reported: {
+                                stationId,
+                                action,
+                                status: payload,
+                                transactionId: payload.transactionId || null,
+                                timestamp: new Date().toISOString(),
+                            },
+                        },
+                    }, (err) => {
+                        if (err) console.error(`❌ Shadow Update Error:`, err);
+                        else console.log(`✅ Shadow Updated (${action}) for ${stationId}`);
+                    });
+                }
                 console.log(`✅ Responded to BootNotification for ${stationId}`);
                 return;
             }
