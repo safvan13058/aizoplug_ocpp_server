@@ -42,6 +42,15 @@ wss.on("connection", (ws, req) => {
     console.log(`🔌 Charge Point Connected (Temporary ID): ${stationId}`);
 
     let deviceShadow;
+    if (!connectedStations[stationId]) {
+        connectedStations[stationId] = {
+            ws,
+            stationId,
+            deviceShadow: null, // Initialize as null
+            payloads: {},
+            lastUpdated: new Date().toISOString(),
+        };
+    }
     let isStationIdUpdated = false;
 
     const initializeDeviceShadow = (stationId) => {
@@ -168,6 +177,7 @@ wss.on("connection", (ws, req) => {
         }
     });
 });
+// ✅ Fix updateDeviceShadow to avoid undefined errors
 const updateDeviceShadow = (stationId, action, payload) => {
     if (!connectedStations[stationId]) {
         console.error(`⚠️ Charge point ${stationId} not found in connectedStations`);
@@ -194,7 +204,6 @@ const updateDeviceShadow = (stationId, action, payload) => {
         else console.log(`✅ Shadow Updated for ${stationId}`);
     });
 };
-
 
 // 🌐 Start WebSocket Server
 const PORT = 80;
