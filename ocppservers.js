@@ -89,20 +89,36 @@ wss.on("connection", (ws, req) => {
                     console.log("shadowworking=payload======", payload);
             
                     // ✅ Now update the shadow safely
-                    deviceShadow.update(stationId, {
+                    console.log("🚀 Updating Device Shadow with:", JSON.stringify({
                         state: {
                             reported: {
-                                deviceData: { // ✅ Store reported state inside "deviceData"
+                                deviceData: {
                                     action,
                                     bootPayload: payload, 
                                     timestamp: new Date().toISOString(),
                                 }
-                            },
-                        },
+                            }
+                        }
+                    }, null, 2)); // Pretty-print for better readability
+                    
+                    deviceShadow.update(stationId, {
+                        state: {
+                            reported: {
+                                deviceData: {
+                                    action,
+                                    bootPayload: payload, 
+                                    timestamp: new Date().toISOString(),
+                                }
+                            }
+                        }
                     }, (err) => {
-                        if (err) console.error(`❌ Shadow Update Error:`, err);
-                        else console.log(`✅ Shadow Updated (${action}) for ${stationId}`);
+                        if (err) {
+                            console.error(`❌ Shadow Update Error:`, err);
+                        } else {
+                            console.log(`✅ Shadow Updated (deviceData) for ${stationId}`);
+                        }
                     });
+                    
             
                     console.log(`✅ Responded to BootNotification for ${stationId}`);
                 });
