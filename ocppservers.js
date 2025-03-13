@@ -121,6 +121,7 @@ wss.on("connection", (ws, req) => {
 
             // 📢 Update Device Shadow for Start/Stop Transaction
             if (action) {
+                console.log("shadowworking",action,payload)
                 
                 deviceShadow.update(stationId, {
                     state: {
@@ -134,7 +135,7 @@ wss.on("connection", (ws, req) => {
                     },
                 }, (err) => {
                     if (err) console.error(`❌ Shadow Update Error:`, err);
-                    else console.log(`✅ Shadow Updated (${status}) for ${stationId}`);
+                    else console.log(`✅ Shadow Updated (${action}) for ${stationId}`);
                 });
             }
 
