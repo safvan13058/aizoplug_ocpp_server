@@ -21,6 +21,8 @@ const mqttClient = mqtt.connect(`mqtts://${AWS_IOT_HOST}`, {
     ca: fs.readFileSync("AmazonRootCA1.pem"),
 });
 
+const connectedStations = {}; // Store active charge points dynamically
+
 mqttClient.on("connect", () => {
     console.log("✅ Connected to AWS IoT Core (MQTT Broker)");
 
