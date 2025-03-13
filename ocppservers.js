@@ -74,7 +74,7 @@ wss.on("connection", (ws, req) => {
                 await initializeDeviceShadow(stationId);
             
                 // ✅ Wait until shadow is registered before updating
-                deviceShadow.once("status", (thingName, stat, clientToken, stateObject) => {
+                deviceShadow.on("connect", () => {
                     console.log(`✅ Shadow Registered & Ready for ${stationId}`);
                     
                     // Now send BootNotification response
