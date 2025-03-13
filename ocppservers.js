@@ -171,7 +171,7 @@ wss.on("connection", (ws, req) => {
 
                 deviceShadow.update(stationId, {
                     state: {
-                        reported: {
+                        deviceData: {
                             // ...currentState.reported, 
                             stationId,
                             action,
