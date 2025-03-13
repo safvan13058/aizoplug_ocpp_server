@@ -120,13 +120,14 @@ wss.on("connection", (ws, req) => {
             console.log(`📤 Published response to ${mqttTopic}`);
 
             // 📢 Update Device Shadow for Start/Stop Transaction
-            if (["StartTransaction", "StopTransaction"].includes(action)) {
-                const status = action === "StartTransaction" ? "charging" : "idle";
+            if (action) {
+                
                 deviceShadow.update(stationId, {
                     state: {
                         reported: {
                             stationId,
-                            status,
+                            action,
+                            status: payload,
                             transactionId: payload.transactionId || null,
                             timestamp: new Date().toISOString(),
                         },
