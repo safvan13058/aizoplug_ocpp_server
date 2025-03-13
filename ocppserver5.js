@@ -68,7 +68,7 @@ wss.on("connection", (ws, req) => {
         });
     
         // 🛠 Store deviceShadow inside connectedStations for later access
-        connectedStations[stationId].deviceShadow = deviceShadow;
+        // connectedStations[stationId].deviceShadow = deviceShadow;
     };
     
 
