@@ -58,7 +58,7 @@ wss.on("connection", (ws, req) => {
     };
 
     // 📥 Handle WebSocket Messages (from Charge Point)
-    ws.on("message", (message) => {
+    ws.on("message", async (message) => {
         console.log("📩 Received OCPP Message:", message.toString());
 
         try {
@@ -66,40 +66,48 @@ wss.on("connection", (ws, req) => {
 
             // 🚀 Extract stationId from BootNotification
             if (action === "BootNotification" && payload.chargePointSerialNumber && !isStationIdUpdated) {
-                stationId = payload.chargePointSerialNumber;  // Set stationId (e.g., "cp_3")
+                stationId = payload.chargePointSerialNumber;
                 isStationIdUpdated = true;
-
                 console.log(`✅ Updated Station ID: ${stationId}`);
-                initializeDeviceShadow(stationId);  // Initialize device shadow
-
-                const bootResponse = [3, messageId, {
-                    currentTime: new Date().toISOString(),
-                    interval: 300,
-                    status: "Accepted",
-                }];
-                ws.send(JSON.stringify(bootResponse));
-                // Log for debugging
-                console.log("bootResponse)shadowworking===action====", action);
-                console.log("shadowworking=payload======", payload);
-
-                // ✅ Always update the Device Shadow with BootNotification details
-                deviceShadow.update(stationId, {
-                    state: {
-                        reported: {
-                            action,  // Action received (BootNotification)
-                            status: payload,  // Full payload of BootNotification
-                            transactionId: payload.transactionId || null,
-                            timestamp: new Date().toISOString(),  // Current timestamp
+            
+                // ✅ Initialize Device Shadow BEFORE sending BootNotification response
+                await initializeDeviceShadow(stationId);
+            
+                // ✅ Wait until shadow is registered before updating
+                deviceShadow.once("status", (thingName, stat, clientToken, stateObject) => {
+                    console.log(`✅ Shadow Registered & Ready for ${stationId}`);
+                    
+                    // Now send BootNotification response
+                    const bootResponse = [3, messageId, {
+                        currentTime: new Date().toISOString(),
+                        interval: 300,
+                        status: "Accepted",
+                    }];
+                    ws.send(JSON.stringify(bootResponse));
+            
+                    console.log("bootResponse shadowworking===action====", action);
+                    console.log("shadowworking=payload======", payload);
+            
+                    // ✅ Now update the shadow safely
+                    deviceShadow.update(stationId, {
+                        state: {
+                            reported: {
+                                action,
+                                status: payload,
+                                timestamp: new Date().toISOString(),
+                            },
                         },
-                    },
-                }, (err) => {
-                    if (err) console.error(`❌ Shadow Update Error:`, err);
-                    else console.log(`✅ Shadow Updated (${action}) for ${stationId}`);
+                    }, (err) => {
+                        if (err) console.error(`❌ Shadow Update Error:`, err);
+                        else console.log(`✅ Shadow Updated (${action}) for ${stationId}`);
+                    });
+            
+                    console.log(`✅ Responded to BootNotification for ${stationId}`);
                 });
-
-                console.log(`✅ Responded to BootNotification for ${stationId}`);
+            
                 return;
             }
+            
 
             // 📡 Handle OCPP Actions and Respond
             let response;
