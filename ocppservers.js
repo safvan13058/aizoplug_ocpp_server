@@ -112,6 +112,7 @@ wss.on("connection", (ws, req) => {
                             }
                         }
                     }, (err) => {
+                        
                         if (err) {
                             console.error(`❌ Shadow Update Error:`, err);
                         } else {
