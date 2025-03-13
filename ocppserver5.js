@@ -42,15 +42,15 @@ wss.on("connection", (ws, req) => {
     console.log(`🔌 Charge Point Connected (Temporary ID): ${stationId}`);
 
     let deviceShadow;
-    if (!connectedStations[stationId]) {
-        connectedStations[stationId] = {
-            ws,
-            stationId,
-            deviceShadow: null, // Initialize as null
-            payloads: {},
-            lastUpdated: new Date().toISOString(),
-        };
-    }
+    // if (!connectedStations[stationId]) {
+    //     connectedStations[stationId] = {
+    //         ws,
+    //         stationId,
+    //         deviceShadow: null, // Initialize as null
+    //         payloads: {},
+    //         lastUpdated: new Date().toISOString(),
+    //     };
+    // }
     let isStationIdUpdated = false;
 
     const initializeDeviceShadow = (stationId) => {
@@ -142,10 +142,10 @@ wss.on("connection", (ws, req) => {
 
             deviceShadow.update(stationId, shadowData, (err) => {
                 if (err) console.error(`❌ Shadow Update Error for ${stationId}:`, err);
-                else console.log(`✅ Shadow Updated for ${stationId}`);
+                else console.log(`✅ .....Shadow Updated for ${stationId}`);
             });
             // 📢 Update Device Shadow for ALL actions
-            updateDeviceShadow(stationId, action, payload,deviceShadow);
+            // updateDeviceShadow(stationId, action, payload,deviceShadow);
         
         } catch (err) {
             console.error("❌ Error parsing OCPP message:", err);
