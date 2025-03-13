@@ -103,13 +103,13 @@ wss.on("connection", (ws, req) => {
                     
                     deviceShadow.update(stationId, {
                         state: {
-                           
+                            reported: {
                                 deviceData: {
                                     action,
                                     bootPayload: payload, 
                                     timestamp: new Date().toISOString(),
                                 }
-                            
+                            }
                         }
                     }, (err) => {
                         if (err) {
@@ -171,7 +171,7 @@ wss.on("connection", (ws, req) => {
 
                 deviceShadow.update(stationId, {
                     state: {
-                        deviceData: {
+                        reported: {
                             // ...currentState.reported, 
                             stationId,
                             action,
