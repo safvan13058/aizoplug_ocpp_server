@@ -78,25 +78,25 @@ wss.on("connection", (ws, req) => {
                     status: "Accepted",
                 }];
                 ws.send(JSON.stringify(bootResponse));
-                if (action) {
-                    console.log("shadowworking===action====",action)
-                    console.log("shadowworking=payload======",payload)
-    
-                    deviceShadow.update(stationId, {
-                        state: {
-                            reported: {
-                                stationId,
-                                action,
-                                status: payload,
-                                transactionId: payload.transactionId || null,
-                                timestamp: new Date().toISOString(),
-                            },
+                // Log for debugging
+                console.log("bootResponse)shadowworking===action====", action);
+                console.log("shadowworking=payload======", payload);
+
+                // ✅ Always update the Device Shadow with BootNotification details
+                deviceShadow.update(stationId, {
+                    state: {
+                        reported: {
+                            action,  // Action received (BootNotification)
+                            status: payload,  // Full payload of BootNotification
+                            transactionId: payload.transactionId || null,
+                            timestamp: new Date().toISOString(),  // Current timestamp
                         },
-                    }, (err) => {
-                        if (err) console.error(`❌ Shadow Update Error:`, err);
-                        else console.log(`✅ Shadow Updated (${action}) for ${stationId}`);
-                    });
-                }
+                    },
+                }, (err) => {
+                    if (err) console.error(`❌ Shadow Update Error:`, err);
+                    else console.log(`✅ Shadow Updated (${action}) for ${stationId}`);
+                });
+
                 console.log(`✅ Responded to BootNotification for ${stationId}`);
                 return;
             }
@@ -140,8 +140,8 @@ wss.on("connection", (ws, req) => {
 
             // 📢 Update Device Shadow for Start/Stop Transaction
             if (action) {
-                console.log("shadowworking===action====",action)
-                console.log("shadowworking=payload======",payload)
+                console.log("shadowworking===action====", action)
+                console.log("shadowworking=payload======", payload)
 
                 deviceShadow.update(stationId, {
                     state: {
@@ -153,10 +153,12 @@ wss.on("connection", (ws, req) => {
                             timestamp: new Date().toISOString(),
                         },
                     },
+
                 }, (err) => {
                     if (err) console.error(`❌ Shadow Update Error:`, err);
                     else console.log(`✅ Shadow Updated (${action}) for ${stationId}`);
                 });
+                console.log(`✅ ..........Shadow Updated (${action}) for ${stationId}`)
             }
 
         } catch (err) {
@@ -172,16 +174,16 @@ wss.on("connection", (ws, req) => {
 
         if (direction !== "in" || stationId !== incomingStationId) return;  // Ignore unrelated messages
 
-         // ✅ Ensure message is properly formatted
-         const trimmedMessage = message.toString().trim(); // Remove extra spaces & newlines
+        // ✅ Ensure message is properly formatted
+        const trimmedMessage = message.toString().trim(); // Remove extra spaces & newlines
 
-         // ✅ Check if the message is valid JSON
-         if (!trimmedMessage.startsWith("{") || !trimmedMessage.endsWith("}")) {
-             console.error("❌ Invalid JSON format in MQTT message:", trimmedMessage);
-             return;
-         }
-        console.log("message",trimmedMessage)
-         const payload = JSON.parse(trimmedMessage);
+        // ✅ Check if the message is valid JSON
+        if (!trimmedMessage.startsWith("{") || !trimmedMessage.endsWith("}")) {
+            console.error("❌ Invalid JSON format in MQTT message:", trimmedMessage);
+            return;
+        }
+        console.log("message", trimmedMessage)
+        const payload = JSON.parse(trimmedMessage);
         const action = payload.action || "RemoteStartTransaction";  // Default to RemoteStartTransaction if not provided
 
         const command = [2, `${Date.now()}`, action, payload.data || {}];
