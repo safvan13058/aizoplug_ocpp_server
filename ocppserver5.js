@@ -131,8 +131,19 @@ wss.on("connection", (ws, req) => {
             // 🔔 Publish charge point response to +/out topic
             const mqttTopic = `${stationId}/out`;
             mqttClient.publish(mqttTopic, JSON.stringify({ action, payload }));
+
             console.log(`📤 Published response to ${mqttTopic}`);
-        
+
+            const shadowData = {
+                state: {
+                    reported: payload
+                }
+            };
+
+            deviceShadow.update(stationId, shadowData, (err) => {
+                if (err) console.error(`❌ Shadow Update Error for ${stationId}:`, err);
+                else console.log(`✅ Shadow Updated for ${stationId}`);
+            });
             // 📢 Update Device Shadow for ALL actions
             updateDeviceShadow(stationId, action, payload,deviceShadow);
         
@@ -179,10 +190,10 @@ wss.on("connection", (ws, req) => {
 });
 // ✅ Fix updateDeviceShadow to avoid undefined errors
 const updateDeviceShadow = (stationId, action, payload,deviceShadow) => {
-    if (!connectedStations[stationId]) {
-        console.error(`⚠️ Charge point ${stationId} not found in connectedStations`);
-        return;
-    }
+    // if (!connectedStations[stationId]) {
+    //     console.error(`⚠️ Charge point ${stationId} not found in connectedStations`);
+    //     return;
+    // }
 
     if (!deviceShadow) {
         console.error(`⚠️ Device Shadow not initialized for ${stationId}`);
