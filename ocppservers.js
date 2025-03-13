@@ -92,9 +92,11 @@ wss.on("connection", (ws, req) => {
                     deviceShadow.update(stationId, {
                         state: {
                             reported: {
-                                action,
-                                bootPayload: payload, 
-                                timestamp: new Date().toISOString(),
+                                deviceData: { // ✅ Store reported state inside "deviceData"
+                                    action,
+                                    bootPayload: payload, 
+                                    timestamp: new Date().toISOString(),
+                                }
                             },
                         },
                     }, (err) => {
