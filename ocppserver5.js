@@ -134,7 +134,7 @@ wss.on("connection", (ws, req) => {
             console.log(`📤 Published response to ${mqttTopic}`);
         
             // 📢 Update Device Shadow for ALL actions
-            updateDeviceShadow(stationId, action, payload);
+            updateDeviceShadow(stationId, action, payload,deviceShadow);
         
         } catch (err) {
             console.error("❌ Error parsing OCPP message:", err);
@@ -178,13 +178,12 @@ wss.on("connection", (ws, req) => {
     });
 });
 // ✅ Fix updateDeviceShadow to avoid undefined errors
-const updateDeviceShadow = (stationId, action, payload) => {
+const updateDeviceShadow = (stationId, action, payload,deviceShadow) => {
     if (!connectedStations[stationId]) {
         console.error(`⚠️ Charge point ${stationId} not found in connectedStations`);
         return;
     }
 
-    const deviceShadow = connectedStations[stationId].deviceShadow;
     if (!deviceShadow) {
         console.error(`⚠️ Device Shadow not initialized for ${stationId}`);
         return;
