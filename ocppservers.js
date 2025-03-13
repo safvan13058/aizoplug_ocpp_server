@@ -158,7 +158,7 @@ wss.on("connection", (ws, req) => {
              console.error("❌ Invalid JSON format in MQTT message:", trimmedMessage);
              return;
          }
- 
+        console.log("message",trimmedMessage)
          const payload = JSON.parse(trimmedMessage);
         const action = payload.action || "RemoteStartTransaction";  // Default to RemoteStartTransaction if not provided
 
