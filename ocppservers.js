@@ -41,7 +41,7 @@ wss.on("connection", (ws, req) => {
 
 
     let deviceShadow;
-    const deviceShadows = {}; 
+    const deviceShadows = {};
     let isStationIdUpdated = false;
     // const initializeDeviceShadow = (stationId) => {
     //     deviceShadow = awsIot.thingShadow({
@@ -63,7 +63,7 @@ wss.on("connection", (ws, req) => {
             console.log(`⚠️ Device Shadow for ${stationId} already initialized.`);
             return deviceShadows[stationId]; // Return existing shadow
         }
-    
+
         const deviceShadow = awsIot.thingShadow({
             keyPath: "private.pem.key",
             certPath: "certificate.pem.crt",
@@ -71,22 +71,22 @@ wss.on("connection", (ws, req) => {
             clientId: stationId,
             host: AWS_IOT_HOST,
         });
-    
+
         deviceShadow.on("connect", () => {
             console.log(`✅ Connected to Device Shadow for ${stationId}`);
-            
+
             deviceShadow.register(stationId, {}, () => {
                 console.log(`✅ Registered Shadow for ${stationId}`);
             });
         });
-    
+
         deviceShadow.on("error", (error) => {
             console.error(`❌ Device Shadow Error for ${stationId}:`, error);
         });
-    
+
         // Store the shadow instance
         deviceShadows[stationId] = deviceShadow;
-    
+
         return deviceShadow;
     };
 
@@ -102,14 +102,14 @@ wss.on("connection", (ws, req) => {
                 stationId = payload.chargePointSerialNumber;
                 isStationIdUpdated = true;
                 console.log(`✅ Updated Station ID: ${stationId}`);
-            
+
                 // ✅ Initialize Device Shadow BEFORE sending BootNotification response
                 await initializeDeviceShadow(stationId);
-            
+
                 // ✅ Wait until shadow is registered before updating
                 deviceShadow.on("connect", () => {
                     console.log(`✅ Shadow Registered & Ready for ${stationId}`);
-                    
+
                     // Now send BootNotification response
                     const bootResponse = [3, messageId, {
                         currentTime: new Date().toISOString(),
@@ -117,49 +117,49 @@ wss.on("connection", (ws, req) => {
                         status: "Accepted",
                     }];
                     ws.send(JSON.stringify(bootResponse));
-            
+
                     console.log("bootResponse shadowworking===action====", action);
                     console.log("shadowworking=payload======", payload);
-            
+
                     // ✅ Now update the shadow safely
                     console.log("🚀 Updating Device Shadow with:", JSON.stringify({
                         state: {
                             reported: {
                                 deviceData: {
                                     action,
-                                    bootPayload: payload, 
+                                    bootPayload: payload,
                                     timestamp: new Date().toISOString(),
                                 }
                             }
                         }
                     }, null, 2)); // Pretty-print for better readability
-                    
+
                     deviceShadow.update(stationId, {
                         state: {
                             reported: {
                                 deviceData: {
                                     action,
-                                    bootPayload: payload, 
+                                    bootPayload: payload,
                                     timestamp: new Date().toISOString(),
                                 }
                             }
                         }
                     }, (err) => {
-                        
+
                         if (err) {
                             console.error(`❌ Shadow Update Error:`, err);
                         } else {
                             console.log(`✅ Shadow Updated (deviceData) for ${stationId}`);
                         }
                     });
-                    
-            
+
+
                     console.log(`✅ Responded to BootNotification for ${stationId}`);
                 });
-            
+
                 return;
             }
-            
+
 
             // 📡 Handle OCPP Actions and Respond
             let response;
@@ -269,24 +269,24 @@ wss.on("connection", (ws, req) => {
         //         else console.log(`✅ Shadow Updated: ${stationId} disconnected`);
         //     });
         // }
-         // Set a timeout for 5 minutes before marking as disconnected
-    disconnectTimers[stationId] = setTimeout(() => {
-        if (deviceShadow) {
-            deviceShadow.update(stationId, {
-                state: {
-                    reported: {
-                        stationId,
-                        status: "disconnected",
-                        timestamp: new Date().toISOString(),
+        // Set a timeout for 5 minutes before marking as disconnected
+        disconnectTimers[stationId] = setTimeout(() => {
+            if (deviceShadow) {
+                deviceShadow.update(stationId, {
+                    state: {
+                        reported: {
+                            stationId,
+                            status: "disconnected",
+                            timestamp: new Date().toISOString(),
+                        },
                     },
-                },
-            }, (err) => {
-                if (err) console.error(`❌ Shadow Update Error:`, err);
-                else console.log(`✅ Shadow Updated: ${stationId} disconnected`);
-            });
-        }
-        delete disconnectTimers[stationId]; // Clean up timer reference
-    }, 5 * 60 * 1000); 
+                }, (err) => {
+                    if (err) console.error(`❌ Shadow Update Error:`, err);
+                    else console.log(`✅ Shadow Updated: ${stationId} disconnected`);
+                });
+            }
+            delete disconnectTimers[stationId]; // Clean up timer reference
+        }, 1 * 60 * 1000);
     });
 
 
