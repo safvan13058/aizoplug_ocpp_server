@@ -13,7 +13,7 @@ const server = http.createServer();
 const wss = new WebSocket.Server({ server });
 
 console.log("🚀 WebSocket server starting on ws://host.aizoplug.com:80");
-
+const disconnectTimers = {};
 // 📡 Connect to AWS IoT Core (MQTT Broker)
 const mqttClient = mqtt.connect(`mqtts://${AWS_IOT_HOST}`, {
     key: fs.readFileSync("private.pem.key"),
@@ -39,22 +39,55 @@ wss.on("connection", (ws, req) => {
     let stationId = url.parse(req.url, true).query.stationId || req.socket.remoteAddress.replace(/^::ffff:/, "");
     console.log(`🔌 Charge Point Connected (Temporary ID): ${stationId}`);
 
-    let deviceShadow;
-    let isStationIdUpdated = false;
 
+    let deviceShadow;
+    const deviceShadows = {}; 
+    let isStationIdUpdated = false;
+    // const initializeDeviceShadow = (stationId) => {
+    //     deviceShadow = awsIot.thingShadow({
+    //         keyPath: "private.pem.key",
+    //         certPath: "certificate.pem.crt",
+    //         caPath: "AmazonRootCA1.pem",
+    //         clientId: stationId,
+    //         host: AWS_IOT_HOST,
+    //     });
+
+    //     deviceShadow.on("connect", () => {
+    //         console.log(`✅ Connected to Device Shadow for ${stationId}`);
+    //         deviceShadow.register(stationId, {}, () => console.log(`✅ Registered Shadow for ${stationId}`));
+    //     });
+
+    // };
     const initializeDeviceShadow = (stationId) => {
-        deviceShadow = awsIot.thingShadow({
+        if (deviceShadows[stationId]) {
+            console.log(`⚠️ Device Shadow for ${stationId} already initialized.`);
+            return deviceShadows[stationId]; // Return existing shadow
+        }
+    
+        const deviceShadow = awsIot.thingShadow({
             keyPath: "private.pem.key",
             certPath: "certificate.pem.crt",
             caPath: "AmazonRootCA1.pem",
             clientId: stationId,
             host: AWS_IOT_HOST,
         });
-
+    
         deviceShadow.on("connect", () => {
             console.log(`✅ Connected to Device Shadow for ${stationId}`);
-            deviceShadow.register(stationId, {}, () => console.log(`✅ Registered Shadow for ${stationId}`));
+            
+            deviceShadow.register(stationId, {}, () => {
+                console.log(`✅ Registered Shadow for ${stationId}`);
+            });
         });
+    
+        deviceShadow.on("error", (error) => {
+            console.error(`❌ Device Shadow Error for ${stationId}:`, error);
+        });
+    
+        // Store the shadow instance
+        deviceShadows[stationId] = deviceShadow;
+    
+        return deviceShadow;
     };
 
     // 📥 Handle WebSocket Messages (from Charge Point)
@@ -222,6 +255,22 @@ wss.on("connection", (ws, req) => {
     // 🔌 Handle Charge Point Disconnection
     ws.on("close", () => {
         console.log(`🔌 Charge Point ${stationId} Disconnected`);
+        // if (deviceShadow) {
+        //     deviceShadow.update(stationId, {
+        //         state: {
+        //             reported: {
+        //                 stationId,
+        //                 status: "disconnected",
+        //                 timestamp: new Date().toISOString(),
+        //             },
+        //         },
+        //     }, (err) => {
+        //         if (err) console.error(`❌ Shadow Update Error:`, err);
+        //         else console.log(`✅ Shadow Updated: ${stationId} disconnected`);
+        //     });
+        // }
+         // Set a timeout for 5 minutes before marking as disconnected
+    disconnectTimers[stationId] = setTimeout(() => {
         if (deviceShadow) {
             deviceShadow.update(stationId, {
                 state: {
@@ -236,6 +285,8 @@ wss.on("connection", (ws, req) => {
                 else console.log(`✅ Shadow Updated: ${stationId} disconnected`);
             });
         }
+        delete disconnectTimers[stationId]; // Clean up timer reference
+    }, 5 * 60 * 1000); 
     });
 
 
