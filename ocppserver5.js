@@ -168,6 +168,8 @@ ws.on("message", async (message) => {
         mqttClient.publish(mqttTopic, JSON.stringify({ action, payload }));
         console.log(`📤 Published response to ${mqttTopic}`);
 
+        if(action!=="Heartbeat"){
+
         // 📢 Update Device Shadow
         deviceShadows[ws.stationId].update(ws.stationId, {
             state: {
@@ -181,8 +183,9 @@ ws.on("message", async (message) => {
             },
         }, (err) => {
             if (err) console.error(`❌ Shadow Update Error:`, err);
-            else console.log(`✅ Shadow Updated (${action}) for ${stationId}`);
+            else console.log(`✅ Shadow Updated (${action}) for ${ws.stationId}`);
         });
+    };
 
     } catch (err) {
         console.error("❌ Error parsing OCPP message:", err);
