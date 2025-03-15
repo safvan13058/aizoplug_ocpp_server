@@ -226,16 +226,16 @@ ws.on("message", async (message) => {
             console.log(`⚠️ Skipping Shadow Update: Missing stationId or deviceShadow`);
             return;
         }
-
+        const timestamp = new Date().toISOString(); 
         // ✅ Mark as "disconnected" in AWS IoT Device Shadow
         deviceShadows[ws.stationId].update(ws.stationId, {
             state: {
-                reported: {
-                    stationId: ws.stationId,
+                desired: {
+                    command: "device_update",
                     status: "disconnected",
-                    timestamp: new Date().toISOString(),
-                },
-            },
+                    timestamp: timestamp
+                }
+            }
         }, (err) => {
             if (err) console.error(`❌ Shadow Update Error (Close Event):`, err);
             else console.log(`✅ Shadow Updated: ${ws.stationId} disconnected`);
@@ -254,12 +254,12 @@ ws.on("message", async (message) => {
             if (ws.stationId && deviceShadows[ws.stationId]) {
                 deviceShadows[ws.stationId].update(ws.stationId, {
                     state: {
-                        reported: {
-                            stationId: ws.stationId,
+                        desired: {
+                            command: "device_update",
                             status: "disconnected",
-                            timestamp: new Date().toISOString(),
-                        },
-                    },
+                            timestamp: timestamp
+                        }
+                    }
                 }, (err) => {
                     if (err) console.error(`❌ Shadow Update Error (Timeout):`, err);
                     else console.log(`✅ Shadow Updated: ${ws.stationId} disconnected due to timeout`);
