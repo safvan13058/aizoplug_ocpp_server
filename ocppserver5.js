@@ -233,7 +233,7 @@ ws.on("message", async (message) => {
                 desired: {
                     command: "device_update",
                     status: "disconnected",
-                    timestamp: timestamp
+                    timestamp: new Date().toISOString()
                 }
             }
         }, (err) => {
