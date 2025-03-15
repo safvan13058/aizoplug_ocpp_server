@@ -36,33 +36,36 @@ mqttClient.on("error", (error) => console.error("❌ MQTT Connection Error:", er
 // 🚀 WebSocket (Charge Point) Connection Handling
 wss.on("connection", (ws, req) => {
     // Assign temporary stationId from URL or IP
-    let stationId = url.parse(req.url, true).query.stationId || req.socket.remoteAddress.replace(/^::ffff:/, "");
-    console.log(`🔌 Charge Point Connected (Temporary ID): ${stationId}`);
-
-
+    ws.stationId = url.parse(req.url, true).query.stationId || req.socket.remoteAddress.replace(/^::ffff:/, "");
+    console.log(`🔌 Charge Point Connected (Temporary ID): ${ws.stationId}`);
+    
+    ws.isAlive = true; // ✅ Track WebSocket status
     let deviceShadow;
     const deviceShadows = {}; 
     let isStationIdUpdated = false;
     const initializeDeviceShadow = (stationId) => {
-        if (deviceShadow) {
-            console.log(`⚠️ Device Shadow already initialized for ${stationId}, skipping re-init.`);
+        if (deviceShadows[ws.stationId]) {
+            console.log(`⚠️ Device Shadow already initialized for ${ws.stationId}, skipping re-init.`);
             return;
         }
     
-        deviceShadow = awsIot.thingShadow({
+        deviceShadows[stationId] = awsIot.thingShadow({
             keyPath: "private.pem.key",
             certPath: "certificate.pem.crt",
             caPath: "AmazonRootCA1.pem",
-            clientId: stationId,
+            clientId: ws.stationId,
             host: AWS_IOT_HOST,
         });
     
-        deviceShadow.on("connect", () => {
-            console.log(`✅ Connected to Device Shadow for ${stationId}`);
-            deviceShadow.register(stationId, {}, () => console.log(`✅ Registered Shadow for ${stationId}`));
+        deviceShadows[ws.stationId].on("connect", () => {
+            console.log(`✅ Connected to Device Shadow for ${ws.stationId}`);
+            deviceShadows[ws.stationId].register(ws.stationId, {}, () => console.log(`✅ Registered Shadow for ${ws.stationId}`));
         });
     };
     
+    ws.on("pong", () => {
+        ws.isAlive = true;
+    });
 
     // 📥 Handle WebSocket Messages (from Charge Point)
     // 📥 Handle WebSocket Messages (from Charge Point)
@@ -76,16 +79,16 @@ ws.on("message", async (message) => {
         if (action === "BootNotification" && payload.chargePointSerialNumber) {
             console.log("isStationIdUpdated===========",isStationIdUpdated)
             if (isStationIdUpdated) {
-                console.log(`⚠️ BootNotification already processed for ${stationId}, ignoring duplicate.`);
+                console.log(`⚠️ BootNotification already processed for ${ws.stationId}, ignoring duplicate.`);
                 return;
             }
 
-            stationId = payload.chargePointSerialNumber;
+            ws.stationId = payload.chargePointSerialNumber;
             isStationIdUpdated = true;
-            console.log(`✅ Updated Station ID: ${stationId}`);
+            console.log(`✅ Updated Station ID: ${ws.stationId}`);
 
             // ✅ Initialize Device Shadow only once
-            initializeDeviceShadow(stationId);
+            initializeDeviceShadow(ws.stationId);
 
             // Now send BootNotification response
             const bootResponse = [3, messageId, {
@@ -95,7 +98,7 @@ ws.on("message", async (message) => {
             }];
             ws.send(JSON.stringify(bootResponse));
 
-            console.log(`✅ Responded to BootNotification for ${stationId}`);
+            console.log(`✅ Responded to BootNotification for ${ws.stationId}`);
 
             // ✅ Update Device Shadow safely
             console.log("🚀 Updating Device Shadow with:", JSON.stringify({
@@ -110,7 +113,7 @@ ws.on("message", async (message) => {
                 }
             }, null, 2));
 
-            deviceShadow.update(stationId, {
+            deviceShadows[ws.stationId].update(ws.stationId, {
                 state: {
                     reported: {
                         deviceData: {
@@ -122,7 +125,7 @@ ws.on("message", async (message) => {
                 }
             }, (err) => {
                 if (err) console.error(`❌ Shadow Update Error:`, err);
-                else console.log(`✅ Shadow Updated (deviceData) for ${stationId}`);
+                else console.log(`✅ Shadow Updated (deviceData) for ${ws.stationId}`);
             });
 
             return;
@@ -158,18 +161,18 @@ ws.on("message", async (message) => {
         }
 
         ws.send(JSON.stringify(response));
-        console.log(`✅ Responded to ${action} for ${stationId}`);
+        console.log(`✅ Responded to ${action} for ${ws.stationId}`);
 
         // 🔔 Publish charge point response
-        const mqttTopic = `${stationId}/out`;
+        const mqttTopic = `${ws.stationId}/out`;
         mqttClient.publish(mqttTopic, JSON.stringify({ action, payload }));
         console.log(`📤 Published response to ${mqttTopic}`);
 
         // 📢 Update Device Shadow
-        deviceShadow.update(stationId, {
+        deviceShadows[ws.stationId].update(ws.stationId, {
             state: {
                 reported: {
-                    stationId,
+                    stationId: ws.stationId,
                     action,
                     status: payload,
                     transactionId: payload.transactionId || null,
@@ -193,7 +196,7 @@ ws.on("message", async (message) => {
 
         const [incomingStationId, direction] = topic.split("/");  // Extract stationId from topic (stationId/in)
 
-        if (direction !== "in" || stationId !== incomingStationId) return;  // Ignore unrelated messages
+        if (direction !== "in" || ws.stationId !== incomingStationId) return;  // Ignore unrelated messages
 
         // ✅ Ensure message is properly formatted
         const trimmedMessage = message.toString().trim(); // Remove extra spaces & newlines
@@ -209,45 +212,62 @@ ws.on("message", async (message) => {
 
         const command = [2, `${Date.now()}`, action, payload.data || {}];
         ws.send(JSON.stringify(command));
-        console.log(`▶️ Sent ${action} to Charge Point (${stationId})`);
+        console.log(`▶️ Sent ${action} to Charge Point (${ws.stationId})`);
     });
 
     // 🔌 Handle Charge Point Disconnection
     ws.on("close", () => {
-        console.log(`🔌 Charge Point ${stationId} Disconnected`);
-        // if (deviceShadow) {
-        //     deviceShadow.update(stationId, {
-        //         state: {
-        //             reported: {
-        //                 stationId,
-        //                 status: "disconnected",
-        //                 timestamp: new Date().toISOString(),
-        //             },
-        //         },
-        //     }, (err) => {
-        //         if (err) console.error(`❌ Shadow Update Error:`, err);
-        //         else console.log(`✅ Shadow Updated: ${stationId} disconnected`);
-        //     });
-        // }
-         // Set a timeout for 5 minutes before marking as disconnected
-    disconnectTimers[stationId] = setTimeout(() => {
-        if (deviceShadow) {
-            deviceShadow.update(stationId, {
-                state: {
-                    reported: {
-                        stationId,
-                        status: "disconnected",
-                        timestamp: new Date().toISOString(),
-                    },
-                },
-            }, (err) => {
-                if (err) console.error(`❌ Shadow Update Error:`, err);
-                else console.log(`✅ Shadow Updated: ${stationId} disconnected`);
-            });
+        console.log(`🔌 Charge Point ${ws.stationId} Disconnected`);
+
+        if (!ws.stationId || !deviceShadows[ws.stationId]) {
+            console.log(`⚠️ Skipping Shadow Update: Missing stationId or deviceShadow`);
+            return;
         }
-        delete disconnectTimers[stationId]; // Clean up timer reference
-    }, 1 * 60 * 1000); 
+
+        // ✅ Mark as "disconnected" in AWS IoT Device Shadow
+        deviceShadows[ws.stationId].update(ws.stationId, {
+            state: {
+                reported: {
+                    stationId: ws.stationId,
+                    status: "disconnected",
+                    timestamp: new Date().toISOString(),
+                },
+            },
+        }, (err) => {
+            if (err) console.error(`❌ Shadow Update Error (Close Event):`, err);
+            else console.log(`✅ Shadow Updated: ${ws.stationId} disconnected`);
+        });
+
+        // ✅ Remove charger shadow reference
+        delete deviceShadows[ws.stationId];
     });
+
+    // ✅ Heartbeat Check (Every 30 seconds)
+    ws.pingInterval = setInterval(() => {
+        if (!ws.isAlive) {
+            console.log(`⚠️ Force closing inactive WebSocket for ${ws.stationId}`);
+
+            // ✅ Mark as "disconnected" before closing WebSocket
+            if (ws.stationId && deviceShadows[ws.stationId]) {
+                deviceShadows[ws.stationId].update(ws.stationId, {
+                    state: {
+                        reported: {
+                            stationId: ws.stationId,
+                            status: "disconnected",
+                            timestamp: new Date().toISOString(),
+                        },
+                    },
+                }, (err) => {
+                    if (err) console.error(`❌ Shadow Update Error (Timeout):`, err);
+                    else console.log(`✅ Shadow Updated: ${ws.stationId} disconnected due to timeout`);
+                });
+            }
+
+            return ws.terminate(); // Forcefully close WebSocket
+        }
+        ws.isAlive = false;
+        ws.ping();
+    }, 30000);
 
 
 });
