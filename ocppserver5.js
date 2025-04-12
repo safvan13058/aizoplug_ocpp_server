@@ -49,7 +49,7 @@ wss.on("connection", (ws, req) => {
             return;
         }
     
-        deviceShadows[stationId] = awsIot.thingShadow({
+        deviceShadows[ws.stationId] = awsIot.thingShadow({
             keyPath: "private.pem.key",
             certPath: "certificate.pem.crt",
             caPath: "AmazonRootCA1.pem",
