@@ -164,10 +164,12 @@ ws.on("message", async (message) => {
         console.log(`✅ Responded to ${action} for ${ws.stationId}`);
 
         // 🔔 Publish charge point response
-        const mqttTopic = `${ws.stationId}/out`;
-        mqttClient.publish(mqttTopic, JSON.stringify({ action, payload }));
-        console.log(`📤 Published response to ${mqttTopic}`);
-
+        if (action !== "Heartbeat") {
+            const mqttTopic = `${ws.stationId}/out`;
+            mqttClient.publish(mqttTopic, JSON.stringify({ action, payload }));
+            console.log(`📤 Published response to ${mqttTopic}`);
+        }
+        
         if(action!=="Heartbeat"){
 
         // 📢 Update Device Shadow
