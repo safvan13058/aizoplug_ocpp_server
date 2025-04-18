@@ -44,12 +44,13 @@ wss.on("connection", (ws, req) => {
     const deviceShadows = {}; 
     let isStationIdUpdated = false;
     const initializeDeviceShadow = (stationId) => {
-        if (deviceShadows[ws.stationId]) {
-            console.log(`⚠️ Device Shadow already initialized for ${ws.stationId}, skipping re-init.`);
+
+        if (deviceShadows[stationId]) {
+            console.log(`⚠️ Device Shadow already initialized for ${stationId}, skipping re-init.`);
             return;
         }
     
-        deviceShadows[ws.stationId] = awsIot.thingShadow({
+        deviceShadows[stationId] = awsIot.thingShadow({
             keyPath: "private.pem.key",
             certPath: "certificate.pem.crt",
             caPath: "AmazonRootCA1.pem",
@@ -57,9 +58,9 @@ wss.on("connection", (ws, req) => {
             host: AWS_IOT_HOST,
         });
     
-        deviceShadows[ws.stationId].on("connect", () => {
-            console.log(`✅ Connected to Device Shadow for ${ws.stationId}`);
-            deviceShadows[ws.stationId].register(ws.stationId, {}, () => console.log(`✅ Registered Shadow for ${ws.stationId}`));
+        deviceShadows[stationId].on("connect", () => {
+            console.log(`✅ Connected to Device Shadow for ${stationId}`);
+            deviceShadows[stationId].register(stationId, {}, () => console.log(`✅ Registered Shadow for ${stationId}`));
         });
     };
     
