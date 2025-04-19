@@ -222,127 +222,67 @@ ws.on("message", async (message) => {
     });
 
     // 🔌 Handle Charge Point Disconnection
-    // ws.on("close", () => {
-    //     console.log(`🔌 Charge Point ${ws.stationId} Disconnected`);
-
-    //     if (!ws.stationId || !deviceShadows[ws.stationId]) {
-    //         console.log(`⚠️ Skipping Shadow Update: Missing stationId or deviceShadow`);
-    //         return;
-    //     }
-    //     const timestamp = new Date().toISOString(); 
-    //     // ✅ Mark as "disconnected" in AWS IoT Device Shadow
-    //     deviceShadows[ws.stationId].update(ws.stationId, {
-    //         state: {
-    //             desired: {
-    //                 command: "device_update",
-    //                 status: "disconnected",
-    //                 timestamp: new Date().toISOString()
-    //             }
-    //         }
-    //     }, (err) => {
-    //         if (err) console.error(`❌ Shadow Update Error (Close Event):`, err);
-    //         else console.log(`✅ Shadow Updated: ${ws.stationId} disconnected`);
-    //     });
-
-    //     // ✅ Remove charger shadow reference
-    //     delete deviceShadows[ws.stationId];
-    // });
     ws.on("close", () => {
         console.log(`🔌 Charge Point ${ws.stationId} Disconnected`);
-    
+
         if (!ws.stationId || !deviceShadows[ws.stationId]) {
             console.log(`⚠️ Skipping Shadow Update: Missing stationId or deviceShadow`);
             return;
         }
-    
-        const timestamp = new Date().toISOString();
-    
-        // 1️⃣ Update Device Shadow (reported)
+        const timestamp = new Date().toISOString(); 
+        // ✅ Mark as "disconnected" in AWS IoT Device Shadow
         deviceShadows[ws.stationId].update(ws.stationId, {
             state: {
-                reported: {
-                    connectionStatus: "disconnected",
-                    timestamp,
+                desired: {
+                    command: "device_update",
+                    status: "disconnected",
+                    timestamp: new Date().toISOString()
                 }
             }
         }, (err) => {
             if (err) console.error(`❌ Shadow Update Error (Close Event):`, err);
             else console.log(`✅ Shadow Updated: ${ws.stationId} disconnected`);
         });
-    
-        // 2️⃣ Publish MQTT message
-        // mqttClient.publish(`${ws.stationId}/out`, JSON.stringify({
-        //     action: "ConnectionStatus",
-        //     status: "disconnected",
-        //     timestamp,
-        // }));
-    
-        // 3️⃣ Remove charger shadow reference
+
+        // ✅ Remove charger shadow reference
         delete deviceShadows[ws.stationId];
     });
-    
+
     // ✅ Heartbeat Check (Every 30 seconds)
-    // ws.pingInterval = setInterval(() => {
-    //     if (!ws.isAlive) {
-    //         console.log(`⚠️ Force closing inactive WebSocket for ${ws.stationId}`);
-
-    //         // ✅ Mark as "disconnected" before closing WebSocket
-    //         if (ws.stationId && deviceShadows[ws.stationId]) {
-    //             deviceShadows[ws.stationId].update(ws.stationId, {
-    //                 state: {
-    //                     desired: {
-    //                         command: "device_update",
-    //                         status: "disconnected",
-    //                         timestamp:  new Date().toISOString()
-    //                     }
-    //                 }
-    //             }, (err) => {
-    //                 if (err) console.error(`❌ Shadow Update Error (Timeout):`, err);
-    //                 else console.log(`✅ Shadow Updated: ${ws.stationId} disconnected due to timeout`);
-    //             });
-    //         }
-
-    //         return ws.terminate(); // Forcefully close WebSocket
-    //     }
-    //     ws.isAlive = false;
-    //     ws.ping();
-    // }, 30000);
     ws.pingInterval = setInterval(() => {
         if (!ws.isAlive) {
             console.log(`⚠️ Force closing inactive WebSocket for ${ws.stationId}`);
-    
-            const timestamp = new Date().toISOString();
-    
-            // ✅ Shadow + MQTT update same as above
+
+             // ✅ Stop interval immediately
+             clearInterval(ws.pingInterval);
+             ws.pingInterval = null;
+
+              // ✅ Prevent double-processing if already disconnected
+             if (ws._terminated) return;
+             ws._terminated = true;
+
+
+            // ✅ Mark as "disconnected" before closing WebSocket
             if (ws.stationId && deviceShadows[ws.stationId]) {
-                // Update Shadow (reported)
                 deviceShadows[ws.stationId].update(ws.stationId, {
                     state: {
-                        reported: {
-                            connectionStatus: "disconnected",
-                            timestamp,
+                        desired: {
+                            command: "device_update",
+                            status: "disconnected",
+                            timestamp:  new Date().toISOString()
                         }
                     }
                 }, (err) => {
                     if (err) console.error(`❌ Shadow Update Error (Timeout):`, err);
                     else console.log(`✅ Shadow Updated: ${ws.stationId} disconnected due to timeout`);
                 });
-    
-                // Publish MQTT
-                // mqttClient.publish(`${ws.stationId}/out`, JSON.stringify({
-                //     action: "ConnectionStatus",
-                //     status: "disconnected",
-                //     timestamp,
-                // }));
             }
-    
+
             return ws.terminate(); // Forcefully close WebSocket
         }
-    
         ws.isAlive = false;
-        ws.ping(); // send ping
+        ws.ping();
     }, 30000);
-    
 
 
 });
