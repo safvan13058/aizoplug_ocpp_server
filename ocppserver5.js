@@ -36,7 +36,18 @@ mqttClient.on("error", (error) => console.error("❌ MQTT Connection Error:", er
 // 🚀 WebSocket (Charge Point) Connection Handling
 wss.on("connection", (ws, req) => {
     // Assign temporary stationId from URL or IP
-    ws.stationId = url.parse(req.url, true).query.stationId || req.socket.remoteAddress.replace(/^::ffff:/, "");
+    const parsedUrl = url.parse(req.url, true);
+
+    // Extract path segments
+    const pathSegments = parsedUrl.pathname.split("/").filter(Boolean);
+
+    // Example: ["websocket", "CentralSystemService", "CP-001"]
+    const stationIdFromPath = pathSegments[2]; // Third segment
+
+    // Fallback to IP if not found
+    ws.stationId = stationIdFromPath || req.socket.remoteAddress.replace(/^::ffff:/, "");
+
+    // ws.stationId = url.parse(req.url, true).query.stationId || req.socket.remoteAddress.replace(/^::ffff:/, "");
     console.log(`🔌 Charge Point Connected (Temporary ID): ${ws.stationId}`);
     
     ws.isAlive = true; // ✅ Track WebSocket status
