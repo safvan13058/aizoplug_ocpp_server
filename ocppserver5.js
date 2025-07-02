@@ -38,21 +38,13 @@ mqttClient.on("error", (error) => console.error("❌ MQTT Connection Error:", er
 
 // 🚀 WebSocket (Charge Point) Connection Handling
 wss.on("connection", (ws, req) => {
-    // Assign temporary stationId from URL or IP
     const parsedUrl = url.parse(req.url, true);
-
-    // Extract path segments
     const pathSegments = parsedUrl.pathname.split("/").filter(Boolean);
-
-    // Example: ["websocket", "CentralSystemService", "CP-001"]
-    const stationIdFromPath = pathSegments[2]; // Third segment
-
-    // Fallback to IP if not found
+    const stationIdFromPath = pathSegments[2];
     ws.stationId = stationIdFromPath || req.socket.remoteAddress.replace(/^::ffff:/, "");
-
     console.log(`🔌 Charge Point Connected (Temporary ID): ${ws.stationId}`);
     
-    ws.isAlive = true; // ✅ Track WebSocket status
+    ws.isAlive = true;
     let isStationIdUpdated = false;
 
     const initializeDeviceShadow = (stationId) => {
@@ -79,7 +71,6 @@ wss.on("connection", (ws, req) => {
         ws.isAlive = true;
     });
 
-    // 📥 Handle WebSocket Messages (from Charge Point)
     ws.on("message", async (message) => {
         console.log("📩 Received OCPP Message:", message.toString());
 
@@ -177,21 +168,26 @@ wss.on("connection", (ws, req) => {
                 console.log(`📤 Published response to ${mqttTopic}`);
             }
 
+            // ✅ Safe update — guard against undefined
             if (action !== "Heartbeat") {
-                deviceShadows[ws.stationId].update(ws.stationId, {
-                    state: {
-                        reported: {
-                            stationId: ws.stationId,
-                            action,
-                            status: payload,
-                            transactionId: payload.transactionId || null,
-                            timestamp: new Date().toISOString(),
+                if (deviceShadows[ws.stationId]) {
+                    deviceShadows[ws.stationId].update(ws.stationId, {
+                        state: {
+                            reported: {
+                                stationId: ws.stationId,
+                                action,
+                                status: payload,
+                                transactionId: payload.transactionId || null,
+                                timestamp: new Date().toISOString(),
+                            },
                         },
-                    },
-                }, (err) => {
-                    if (err) console.error(`❌ Shadow Update Error:`, err);
-                    else console.log(`✅ Shadow Updated (${action}) for ${ws.stationId}`);
-                });
+                    }, (err) => {
+                        if (err) console.error(`❌ Shadow Update Error:`, err);
+                        else console.log(`✅ Shadow Updated (${action}) for ${ws.stationId}`);
+                    });
+                } else {
+                    console.warn(`⚠️ Device Shadow not initialized yet for ${ws.stationId} → skipping update for ${action}`);
+                }
             }
 
         } catch (err) {
@@ -228,7 +224,6 @@ wss.on("connection", (ws, req) => {
             console.log(`⚠️ Skipping Shadow Update: Missing stationId or deviceShadow`);
             return;
         }
-        const timestamp = new Date().toISOString();
         deviceShadows[ws.stationId].update(ws.stationId, {
             state: {
                 desired: {
