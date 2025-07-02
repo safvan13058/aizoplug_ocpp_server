@@ -187,6 +187,7 @@ wss.on("connection", (ws, req) => {
                     });
                 } else {
                     console.warn(`⚠️ Device Shadow not initialized yet for ${ws.stationId} → skipping update for ${action}`);
+                    initializeDeviceShadow(ws.stationId);
                 }
             }
 
