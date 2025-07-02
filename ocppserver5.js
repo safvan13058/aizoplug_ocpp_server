@@ -185,7 +185,7 @@ wss.on("connection", (ws, req) => {
             response = [3, messageId, {}];
             break;
           case "RemoteStartTransaction":
-          case "RemoteStopTransaction":
+          case "RemoteStopTransaction" :
             response = [3, messageId, { status: "Accepted" }];
             break;
           default:
