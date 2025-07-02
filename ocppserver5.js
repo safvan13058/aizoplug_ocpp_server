@@ -79,7 +79,7 @@ wss.on("connection", (ws, req) => {
   });
 
   ws.on("message", async (message) => {
-    console.log("📩 Received OCPP Message:",  JSON.parse(message.toString()));
+    console.log("📩 Received OCPP Message:", message.toString());
 
     try {
       const parsed = JSON.parse(message);
@@ -161,9 +161,7 @@ wss.on("connection", (ws, req) => {
         }
 
         let response;
-        console.log("actions======",action);
         switch (action) {
-        
           case "Authorize":
             response = [3, messageId, { idTagInfo: { status: "Accepted" } }];
             break;
@@ -195,7 +193,7 @@ wss.on("connection", (ws, req) => {
         }
 
         ws.send(JSON.stringify(response));
-        console.log(`✅ Responded to ${action} for ${ws.stationId}`);
+        console.log(`✅ Responded to ${typeof action === 'object' ? JSON.stringify(action) : action} for ${ws.stationId}`);
 
         if (action !== "Heartbeat") {
           const mqttTopic = `${ws.stationId}/out`;
