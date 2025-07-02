@@ -88,9 +88,11 @@ ws.on("message", async (message) => {
         const [messageType, messageId, action, payload] = JSON.parse(message);
 
         // 🚀 Extract stationId from BootNotification
-        if (action === "BootNotification" && payload.chargePointSerialNumber) {
+        if (action === "BootNotification" ) {
             console.log("isStationIdUpdated===========",isStationIdUpdated)
+            if( payload.chargePointSerialNumber){
              ws.stationId = payload.chargePointSerialNumber;
+            }
             if (isStationIdUpdated) {
                 console.log(`⚠️ BootNotification already processed for ${ws.stationId}, ignoring duplicate.`);
                 return;
