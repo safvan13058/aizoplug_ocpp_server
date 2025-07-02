@@ -90,12 +90,13 @@ ws.on("message", async (message) => {
         // 🚀 Extract stationId from BootNotification
         if (action === "BootNotification" && payload.chargePointSerialNumber) {
             console.log("isStationIdUpdated===========",isStationIdUpdated)
+             ws.stationId = payload.chargePointSerialNumber;
             if (isStationIdUpdated) {
                 console.log(`⚠️ BootNotification already processed for ${ws.stationId}, ignoring duplicate.`);
                 return;
             }
 
-            ws.stationId = payload.chargePointSerialNumber;
+            // ws.stationId = payload.chargePointSerialNumber;
             isStationIdUpdated = true;
             console.log(`✅ Updated Station ID: ${ws.stationId}`);
 
